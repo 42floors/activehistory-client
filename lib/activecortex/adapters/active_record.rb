@@ -52,6 +52,10 @@ module ActiveCortex::Adapter
       end
     end
     
+    def activecortex_id
+      "#{self.class.name}/#{id}"
+    end
+    
     def activecortex_timestamp
       @activecortex_timestamp ||= Time.now.utc
     end
@@ -65,7 +69,7 @@ module ActiveCortex::Adapter
     
     def activecortex_complete
       @activecortex_timestamp = nil
-      if @activecortex_finish && activecortex_tracking
+      if instance_variable_defined?(:@activecortex_finish) && @activecortex_finish && activecortex_tracking
         activecortex_event.save! if activecortex_event
         Thread.current[:activecortex_event] = nil
         @activecortex_timestamp = nil
@@ -112,8 +116,7 @@ module ActiveCortex::Adapter
       if !activecortex_tracking[:habtm_model]
         activecortex_event.action!({
           type: type,
-          subject_id: self.id,
-          subject_type: self.model_name.name,
+          subject: self.activecortex_id,
           diff: diff,
           timestamp: @activecortex_timestamp
         })
@@ -177,10 +180,9 @@ module ActiveCortex::Adapter
       
       model_name = reflection.klass.base_class.model_name.name
       
-      action = activecortex_event.action_for(model_name, id) || activecortex_event.action!({
+      action = activecortex_event.action_for("#{model_name}/#{id}") || activecortex_event.action!({
         type: type,
-        subject_type: model_name,
-        subject_id: id,
+        subject: "#{model_name}/#{id}",
         timestamp: timestamp# || Time.now
       })
       

@@ -26,6 +26,7 @@ require 'activecortex/connection'
 require 'activecortex/event'
 require 'activecortex/action'
 require 'activecortex/regard'
+require 'activecortex/version'
 require 'activecortex/exceptions'
 
 if defined?(ActiveRecord::VERSION)

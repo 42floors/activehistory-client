@@ -18,8 +18,7 @@ class BelongsToAssociationTest < ActiveSupport::TestCase
       assert_equal 2, req_data['actions'].size
 
       assert_equal 'update',   req_data['actions'][1]['type']
-      assert_equal 'Account',  req_data['actions'][1]['subject_type']
-      assert_equal @model.id,  req_data['actions'][1]['subject_id']
+      assert_equal "Account/#{@model.id}",  req_data['actions'][1]['subject']
       assert_equal [[], [@target.id]], req_data['actions'][1]['diff']['photo_ids']
     end
   end
@@ -36,8 +35,7 @@ class BelongsToAssociationTest < ActiveSupport::TestCase
       assert_equal 2, req_data['actions'].size
 
       assert_equal 'update',   req_data['actions'][1]['type']
-      assert_equal 'Account',  req_data['actions'][1]['subject_type']
-      assert_equal @model.id,  req_data['actions'][1]['subject_id']
+      assert_equal "Account/#{@model.id}",  req_data['actions'][1]['subject']
       assert_equal [[@target.id], []], req_data['actions'][1]['diff']['photo_ids']
     end
   end
@@ -55,13 +53,11 @@ class BelongsToAssociationTest < ActiveSupport::TestCase
       assert_equal 3, req_data['actions'].size
 
       assert_equal 'update',   req_data['actions'][1]['type']
-      assert_equal 'Account',  req_data['actions'][1]['subject_type']
-      assert_equal @model1.id,  req_data['actions'][1]['subject_id']
+      assert_equal "Account/#{@model1.id}",  req_data['actions'][1]['subject']
       assert_equal [[@target.id], []], req_data['actions'][1]['diff']['photo_ids']
       
       assert_equal 'update',   req_data['actions'][2]['type']
-      assert_equal 'Account',  req_data['actions'][2]['subject_type']
-      assert_equal @model2.id,  req_data['actions'][2]['subject_id']
+      assert_equal "Account/#{@model2.id}",  req_data['actions'][2]['subject']
       assert_equal [[], [@target.id]], req_data['actions'][2]['diff']['photo_ids']
     end
   end
@@ -78,8 +74,7 @@ class BelongsToAssociationTest < ActiveSupport::TestCase
       assert_equal 2, req_data['actions'].size
 
       assert_equal 'update',   req_data['actions'][1]['type']
-      assert_equal 'Account',  req_data['actions'][1]['subject_type']
-      assert_equal @model.id,  req_data['actions'][1]['subject_id']
+      assert_equal "Account/#{@model.id}",  req_data['actions'][1]['subject']
       assert_equal [[@target.id], []], req_data['actions'][1]['diff']['photo_ids']
     end
   end

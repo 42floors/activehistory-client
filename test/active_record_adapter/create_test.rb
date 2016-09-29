@@ -25,8 +25,7 @@ class CreateTest < ActiveSupport::TestCase
           active: [nil, @property.active],
           created_at: [nil, @property.created_at]
         },
-        subject_id: @property.id,
-        subject_type: 'Property',
+        subject: "Property/#{@property.id}",
         timestamp: @time.iso8601(3),
         type: 'create'
       }.as_json
@@ -46,8 +45,7 @@ class CreateTest < ActiveSupport::TestCase
           # No Title
           body: [nil, @comment.body]
         },
-        subject_id: @comment.id,
-        subject_type: 'Comment',
+        subject: "Comment/#{@comment.id}",
         timestamp: @time.iso8601(3),
         type: 'create'
       }.as_json

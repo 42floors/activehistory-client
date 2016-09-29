@@ -15,8 +15,8 @@ class ActiveCortex::Event
     action
   end
   
-  def action_for(klass, id)
-    @actions.find { |a| a.subject_type == klass && a.subject_id == id }
+  def action_for(id)
+    @actions.find { |a| a.subject == id }
   end
   
   def regard!(regard)

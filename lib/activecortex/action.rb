@@ -1,6 +1,6 @@
 class ActiveCortex::Action
 
-  attr_accessor :type, :timestamp, :subject_type, :subject_id, :diff
+  attr_accessor :type, :timestamp, :subject, :diff
 
   def initialize(attrs)
     attrs.each do |k,v|
@@ -11,8 +11,7 @@ class ActiveCortex::Action
   def as_json
     {
       diff: diff.as_json,
-      subject_id:   @subject_id,
-      subject_type: @subject_type,
+      subject:   @subject,
       timestamp:    @timestamp.iso8601(3),
       type:         @type
     }

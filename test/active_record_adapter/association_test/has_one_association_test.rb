@@ -24,8 +24,7 @@ class HasOneAssociationTest < ActiveSupport::TestCase
           photos_count: [nil, 0],
           email_address_id: [nil, @email_address.id]
         },
-        subject_id: @account.id,
-        subject_type: 'Account',
+        subject: "Account/#{@account.id}",
         timestamp: @time.iso8601(3),
         type: 'create'
       }.as_json
@@ -33,8 +32,7 @@ class HasOneAssociationTest < ActiveSupport::TestCase
       assert_equal req_data['actions'][1], {
         timestamp: @time.iso8601(3),
         type: 'update',
-        subject_id: @email_address.id,
-        subject_type: 'EmailAddress',
+        subject: "EmailAddress/#{@email_address.id}",
         diff: {
           account_id: [nil, @account.id]
         }
@@ -58,8 +56,7 @@ class HasOneAssociationTest < ActiveSupport::TestCase
           address: [nil, @email_address.address],
           account_id: [nil, @account.id]
         },
-        subject_id: @email_address.id,
-        subject_type: 'EmailAddress',
+        subject: "EmailAddress/#{@email_address.id}",
         timestamp: @time.iso8601(3),
         type: 'create'
       }.as_json
@@ -67,8 +64,7 @@ class HasOneAssociationTest < ActiveSupport::TestCase
       assert_equal req_data['actions'][1], {
         timestamp: @time.iso8601(3),
         type: 'update',
-        subject_id: @account.id,
-        subject_type: 'Account',
+        subject: "Account/#{@account.id}",
         diff: {
           email_address_id: [nil, @email_address.id]
         }
@@ -90,8 +86,7 @@ class HasOneAssociationTest < ActiveSupport::TestCase
           photos_count: [nil, 0],
           email_address_id: [nil, @account.email_address.id]
         },
-        subject_id: @account.id,
-        subject_type: 'Account',
+        subject: "Account/#{@account.id}",
         timestamp: @time.iso8601(3),
         type: 'create'
       }.as_json
@@ -99,8 +94,7 @@ class HasOneAssociationTest < ActiveSupport::TestCase
       assert_equal req_data['actions'][1], {
         timestamp: @time.iso8601(3),
         type: 'create',
-        subject_id: @account.email_address.id,
-        subject_type: 'EmailAddress',
+        subject: "EmailAddress/#{@account.email_address.id}",
         diff: {
           id: [nil, @account.email_address.id],
           address: [nil, @account.email_address.address],
@@ -125,8 +119,7 @@ class HasOneAssociationTest < ActiveSupport::TestCase
         diff: {
           account_id: [@account.id, nil]
         },
-        subject_id: @email_address.id,
-        subject_type: 'EmailAddress',
+        subject: "EmailAddress/#{@email_address.id}",
         timestamp: @time.iso8601(3),
         type: 'update'
       }.as_json
@@ -134,8 +127,7 @@ class HasOneAssociationTest < ActiveSupport::TestCase
       assert_equal req_data['actions'][1], {
         timestamp: @time.iso8601(3),
         type: 'update',
-        subject_id: @account.id,
-        subject_type: 'Account',
+        subject: "Account/#{@account.id}",
         diff: {
           email_address_id: [@email_address.id, nil]
         }

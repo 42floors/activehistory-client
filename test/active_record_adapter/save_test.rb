@@ -21,8 +21,7 @@ class SaveTest < ActiveSupport::TestCase
       assert_equal req_data['actions'][0], {
         timestamp: @time.iso8601(3),
         type: 'update',
-        subject_id: @property.id,
-        subject_type: 'Property',
+        subject: "Property/#{@property.id}",
         diff: {
           name: ['unkown', 'Empire State Building']
         }
@@ -45,8 +44,7 @@ class SaveTest < ActiveSupport::TestCase
       assert_equal req_data['actions'][0], {
         timestamp: @time.iso8601(3),
         type: 'update',
-        subject_id: @comment.id,
-        subject_type: 'Comment',
+        subject: "Comment/#{@comment.id}",
         diff: {
           body: ['body', 'new body']
         }

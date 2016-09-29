@@ -22,8 +22,7 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
           name: [nil, @region.name],
           property_ids: [[], [@property.id]]
         },
-        subject_id: @region.id,
-        subject_type: 'Region',
+        subject: "Region/#{@region.id}",
         timestamp: @time.iso8601(3),
         type: 'create'
       }.as_json
@@ -31,8 +30,7 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
       assert_equal req_data['actions'][1], {
         timestamp: @time.iso8601(3),
         type: 'update',
-        subject_id: @property.id,
-        subject_type: 'Property',
+        subject: "Property/#{@property.id}",
         diff: {
           region_ids: [[], [@region.id]]
         }
@@ -56,8 +54,7 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
           name: [nil, @region.name],
           property_ids: [[], [@property.id]]
         },
-        subject_id: @region.id,
-        subject_type: 'Region',
+        subject: "Region/#{@region.id}",
         timestamp: @time.iso8601(3),
         type: 'create'
       }.as_json
@@ -65,8 +62,7 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
       assert_equal req_data['actions'][1], {
         timestamp: @time.iso8601(3),
         type: 'create',
-        subject_id: @property.id,
-        subject_type: 'Property',
+        subject: "Property/#{@property.id}",
         diff: {
           id: [nil, @property.id],
           name: [nil, @property.name],
@@ -97,8 +93,7 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
         diff: {
           property_ids: [[], [@property.id]]
         },
-        subject_id: @region.id,
-        subject_type: 'Region',
+        subject: "Region/#{@region.id}",
         timestamp: @time.iso8601(3),
         type: 'update'
       }.as_json
@@ -106,8 +101,7 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
       assert_equal req_data['actions'][1], {
         timestamp: @time.iso8601(3),
         type: 'update',
-        subject_id: @property.id,
-        subject_type: 'Property',
+        subject: "Property/#{@property.id}",
         diff: {
           region_ids: [[], [@region.id]]
         }
@@ -129,8 +123,7 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
       assert_equal req_data['actions'][0], {
         timestamp: @time.iso8601(3),
         type: 'create',
-        subject_id: @property.id,
-        subject_type: 'Property',
+        subject: "Property/#{@property.id}",
         diff: {
           id: [nil, @property.id],
           name: [nil, @property.name],
@@ -148,8 +141,7 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
         diff: {
           property_ids: [[], [@property.id]]
         },
-        subject_id: @region.id,
-        subject_type: 'Region',
+        subject: "Region/#{@region.id}",
         timestamp: @time.iso8601(3),
         type: 'update'
       }.as_json
@@ -171,8 +163,7 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
         diff: {
           property_ids: [[@property.id], []]
         },
-        subject_id: @region.id,
-        subject_type: 'Region',
+        subject: "Region/#{@region.id}",
         timestamp: @time.iso8601(3),
         type: 'update'
       }.as_json
@@ -180,8 +171,7 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
       assert_equal req_data['actions'][1], {
         timestamp: @time.iso8601(3),
         type: 'update',
-        subject_id: @property.id,
-        subject_type: 'Property',
+        subject: "Property/#{@property.id}",
         diff: {
           region_ids: [[@region.id], []]
         }
@@ -206,8 +196,7 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
           name: [@region.name, nil],
           property_ids: [[@property.id], []]
         },
-        subject_id: @region.id,
-        subject_type: 'Region',
+        subject: "Region/#{@region.id}",
         timestamp: @time.iso8601(3),
         type: 'destroy'
       }.as_json
@@ -215,8 +204,7 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
       assert_equal req_data['actions'][1], {
         timestamp: @time.iso8601(3),
         type: 'update',
-        subject_id: @property.id,
-        subject_type: 'Property',
+        subject: "Property/#{@property.id}",
         diff: {
           region_ids: [[@region.id], []]
         }
