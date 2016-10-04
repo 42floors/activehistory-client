@@ -1,7 +1,7 @@
 require 'uri'
 require 'net/https'
 
-class ActiveCortex::Connection
+class ActiveHistory::Connection
   
   attr_reader :api_key, :host, :port, :ssl
   
@@ -27,7 +27,7 @@ class ActiveCortex::Connection
   def user_agent
     [
       @user_agent,
-      "Sunstone/#{ActiveCortex::VERSION}",
+      "Sunstone/#{ActiveHistory::VERSION}",
       "Ruby/#{RUBY_VERSION}-p#{RUBY_PATCHLEVEL}",
       RUBY_PLATFORM
     ].compact.join(' ')
@@ -95,25 +95,25 @@ class ActiveCortex::Connection
     if !(200..299).include?(code)
       case code
       when 400
-        raise ActiveCortex::Exception::BadRequest, response.body
+        raise ActiveHistory::Exception::BadRequest, response.body
       when 401
-        raise ActiveCortex::Exception::Unauthorized, response
+        raise ActiveHistory::Exception::Unauthorized, response
       when 404
-        raise ActiveCortex::Exception::NotFound, response
+        raise ActiveHistory::Exception::NotFound, response
       when 410
-        raise ActiveCortex::Exception::Gone, response
+        raise ActiveHistory::Exception::Gone, response
       when 422
-        raise ActiveCortex::Exception::ApiVersionUnsupported, response
+        raise ActiveHistory::Exception::ApiVersionUnsupported, response
       when 503
-        raise ActiveCortex::Exception::ServiceUnavailable, response
+        raise ActiveHistory::Exception::ServiceUnavailable, response
       when 301
-        raise ActiveCortex::Exception::MovedPermanently, response
+        raise ActiveHistory::Exception::MovedPermanently, response
       when 502
-        raise ActiveCortex::Exception::BadGateway, response
+        raise ActiveHistory::Exception::BadGateway, response
       when 300..599
-        raise ActiveCortex::Exception, response
+        raise ActiveHistory::Exception, response
       else
-        raise ActiveCortex::Exception, response
+        raise ActiveHistory::Exception, response
       end
     end
   end

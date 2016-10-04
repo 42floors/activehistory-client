@@ -2,7 +2,7 @@ require 'rake/testtask'
 require 'rdoc/task'
 
 task :console do
-  exec 'irb -I lib -r activecortex.rb'
+  exec 'irb -I lib -r activehistory.rb'
 end
 task :c => :console
 

@@ -1,4 +1,4 @@
-class ActiveCortex::Event
+class ActiveHistory::Event
   
   attr_accessor :actions, :regards, :timestamp
   
@@ -10,7 +10,7 @@ class ActiveCortex::Event
   end
   
   def action!(action)
-    action = ActiveCortex::Action.new(action)
+    action = ActiveHistory::Action.new(action)
     @actions << action
     action
   end
@@ -26,7 +26,7 @@ class ActiveCortex::Event
   def save!
     return if @actions.empty?
     
-    ActiveCortex.connection.post('/events', self.as_json)
+    ActiveHistory.connection.post('/events', self.as_json)
   end
   
   def as_json

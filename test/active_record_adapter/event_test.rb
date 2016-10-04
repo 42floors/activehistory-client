@@ -19,12 +19,12 @@ class EventTest < ActiveSupport::TestCase
     }
     
     # TODO: timestamp:  @attrs[:timestamp].iso8601(3),
-    ActiveCortex.encapsulate(data) do
+    ActiveHistory.encapsulate(data) do
       create(:property)
       create(:property)
     end
     
-    assert_requested(:post, "http://activecortex.com/events", times: 1) do |req|
+    assert_requested(:post, "http://activehistory.com/events", times: 1) do |req|
       req_data = JSON.parse(req.body)
       data.each do |k, v|
         assert_equal v.is_a?(Time) ? v.utc.iso8601(3) : v.as_json, req_data[k.to_s]
@@ -36,24 +36,24 @@ class EventTest < ActiveSupport::TestCase
   
   test 'Timestamp gets sent with Event' do
     travel_to @time do
-      ActiveCortex.encapsulate { create(:property) }
+      ActiveHistory.encapsulate { create(:property) }
     end
     
-    assert_requested(:post, "http://activecortex.com/events", times: 1) do |req|
+    assert_requested(:post, "http://activehistory.com/events", times: 1) do |req|
       assert_equal @time.iso8601(3), JSON.parse(req.body)['timestamp']
     end
   end
   
   test 'Event not captured it no actions taken' do
-    ActiveCortex.encapsulate { 1 + 1 }
+    ActiveHistory.encapsulate { 1 + 1 }
     
-    assert_not_requested :any, /^http:\/\/activecortex.com\/.*/
+    assert_not_requested :any, /^http:\/\/activehistory.com\/.*/
   end
   
   test 'Nothing sent on a model not being tracked' do
-    ActiveCortex.encapsulate { create(:unobserved_model) }
+    ActiveHistory.encapsulate { create(:unobserved_model) }
 
-    assert_not_requested :any, /^http:\/\/activecortex.com\/.*/
+    assert_not_requested :any, /^http:\/\/activehistory.com\/.*/
   end
   
 end

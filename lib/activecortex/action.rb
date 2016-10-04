@@ -1,4 +1,4 @@
-class ActiveCortex::Action
+class ActiveHistory::Action
 
   attr_accessor :type, :timestamp, :subject, :diff
 

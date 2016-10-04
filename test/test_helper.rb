@@ -14,14 +14,14 @@ WebMock.disable_net_connect!
 Minitest::Reporters.use! Minitest::Reporters::SpecReporter.new
 
 require 'active_record'
-require 'activecortex'
+require 'activehistory'
 
-ActiveCortex.configure({
-  url: 'http://activecortex.com'
+ActiveHistory.configure({
+  url: 'http://activehistory.com'
 })
 ActiveRecord::Base.establish_connection({
   adapter: 'postgresql',
-  database: 'activecortex-client-test'
+  database: 'activehistory-client-test'
 })
 ActiveRecord::Migration.suppress_messages do
   require File.expand_path('../schema', __FILE__)
@@ -37,15 +37,15 @@ FactoryGirl.find_definitions
 class ActiveSupport::TestCase
   
   def setup
-    WebMock.stub_request(:any, /^http:\/\/activecortex.com\/.*/)
+    WebMock.stub_request(:any, /^http:\/\/activehistory.com\/.*/)
   end
   
   def assert_posted(path, &block)
-    assert_requested(:post, "#{ActiveCortex.url}#{path}", times: 1, &block)
+    assert_requested(:post, "#{ActiveHistory.url}#{path}", times: 1, &block)
   end
   
   def assert_not_posted(path)
-    assert_not_requested(:post, "#{ActiveCortex.url}#{path}")
+    assert_not_requested(:post, "#{ActiveHistory.url}#{path}")
   end
   
   include ActiveRecord::TestFixtures

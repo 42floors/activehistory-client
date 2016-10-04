@@ -1,29 +1,29 @@
-module ActiveCortex
+module ActiveHistory
   
   class Exception < ::Exception
     
-    class BadGateway < ActiveCortex::Exception
+    class BadGateway < ActiveHistory::Exception
     end
 
-    class BadRequest < ActiveCortex::Exception
+    class BadRequest < ActiveHistory::Exception
     end
 
-    class Unauthorized < ActiveCortex::Exception
+    class Unauthorized < ActiveHistory::Exception
     end
 
-    class NotFound < ActiveCortex::Exception
+    class NotFound < ActiveHistory::Exception
     end
 
-    class Gone < ActiveCortex::Exception
+    class Gone < ActiveHistory::Exception
     end
 
-    class MovedPermanently < ActiveCortex::Exception
+    class MovedPermanently < ActiveHistory::Exception
     end
 
-    class ApiVersionUnsupported < ActiveCortex::Exception
+    class ApiVersionUnsupported < ActiveHistory::Exception
     end
 
-    class ServiceUnavailable < ActiveCortex::Exception
+    class ServiceUnavailable < ActiveHistory::Exception
     end
 
   end

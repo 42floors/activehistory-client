@@ -1,4 +1,4 @@
-class ActiveCortex::Regard
+class ActiveHistory::Regard
   
   def initialize(id)
     @subject = id

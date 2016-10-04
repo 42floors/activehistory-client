@@ -1,14 +1,14 @@
-require File.expand_path("../lib/activecortex/version", __FILE__)
+require File.expand_path("../lib/activehistory/version", __FILE__)
 
 Gem::Specification.new do |s|
-  s.name        = "activecortex"
-  s.version     = ActiveCortex::VERSION
+  s.name        = "activehistory"
+  s.version     = ActiveHistory::VERSION
   s.authors     = ["Jon Bracy"]
   s.email       = ["jonbracy@gmail.com"]
-  s.homepage    = "https://activecortex.com"
+  s.homepage    = "https://activehistory.com"
   s.summary     = %q{Track changes to ActiveRecord models}
   s.description = <<~DESC
-    ActiveCortex tracks and logs changes to your ActiveRecord models and
+    ActiveHistory tracks and logs changes to your ActiveRecord models and
     relationships for auditing in the future.
   DESC
 

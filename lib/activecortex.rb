@@ -1,9 +1,9 @@
-module ActiveCortex
+module ActiveHistory
   
   mattr_accessor :connection
   
   def self.configure(settings)
-    @@connection = ActiveCortex::Connection.new(settings)
+    @@connection = ActiveHistory::Connection.new(settings)
   end
   
   def self.url
@@ -11,25 +11,25 @@ module ActiveCortex
   end
 
   def self.encapsulate(id_or_options=nil)
-    Thread.current[:activecortex_event] = id_or_options
+    Thread.current[:activehistory_event] = id_or_options
     yield
   ensure
-    if Thread.current[:activecortex_event].is_a?(ActiveCortex::Event)
-      Thread.current[:activecortex_event].save!
+    if Thread.current[:activehistory_event].is_a?(ActiveHistory::Event)
+      Thread.current[:activehistory_event].save!
     end
-    Thread.current[:activecortex_event] = nil
+    Thread.current[:activehistory_event] = nil
   end
   
 end
 
-require 'activecortex/connection'
-require 'activecortex/event'
-require 'activecortex/action'
-require 'activecortex/regard'
-require 'activecortex/version'
-require 'activecortex/exceptions'
+require 'activehistory/connection'
+require 'activehistory/event'
+require 'activehistory/action'
+require 'activehistory/regard'
+require 'activehistory/version'
+require 'activehistory/exceptions'
 
 if defined?(ActiveRecord::VERSION)
-  require 'activecortex/adapters/active_record'
-  ActiveRecord::Base.include(ActiveCortex::Adapter::ActiveRecord)
+  require 'activehistory/adapters/active_record'
+  ActiveRecord::Base.include(ActiveHistory::Adapter::ActiveRecord)
 end
