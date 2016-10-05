@@ -77,7 +77,7 @@ module ActiveHistory::Adapter
     end
     
     def activehistory_tracking
-      if self.class.instance_variable_defined?(:@activehistory)
+      if ActiveHistory.configured? && self.class.instance_variable_defined?(:@activehistory)
         self.class.instance_variable_get(:@activehistory)
       end
     end

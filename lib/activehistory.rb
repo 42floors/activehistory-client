@@ -6,6 +6,10 @@ module ActiveHistory
     @@connection = ActiveHistory::Connection.new(settings)
   end
   
+  def self.configured?
+    class_variable_defined?(:@@connection)
+  end
+  
   def self.url
     @@connection.url
   end
