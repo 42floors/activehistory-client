@@ -22,7 +22,9 @@ module ActiveHistory::Adapter
       end
       
       def track(exclude: [], habtm_model: nil)
-        @activehistory = {exclude: Array(exclude), habtm_model: habtm_model}
+        options = {exclude: Array(exclude)}
+        options[:habtm_model] = habtm_model if habtm_model
+        @activehistory = options
       end
       
       def has_and_belongs_to_many(name, scope = nil, options = {}, &extension)
@@ -35,12 +37,19 @@ module ActiveHistory::Adapter
         }
         
         callback = ->(method, owner, record) {
-          owner.activehistory_association_udpated(
-            record.class.reflect_on_association(owner.class.reflect_on_association(name.to_s).options[:inverse_of].to_s),
-            owner.id,
-            removed: [record.id],
-            timestamp: owner.activehistory_timestamp
-          )
+          owner.activehistory_start
+
+          if inverse = owner.class.reflect_on_association(name.to_s).options[:inverse_of]
+            owner.activehistory_association_udpated(
+              record.class.reflect_on_association(inverse.to_s),
+              owner.id,
+              removed: [record.id],
+              timestamp: owner.activehistory_timestamp
+            )
+          else
+            puts "NO INVERSE for #{owner.class.name}.#{name}!!!"
+          end
+
           record.activehistory_association_udpated(
             owner.class.reflect_on_association(name.to_s),
             record.id,
@@ -61,7 +70,7 @@ module ActiveHistory::Adapter
     end
     
     def activehistory_start
-      if activehistory_tracking && !instance_variable_defined?(:@activehistory_finish)
+      if activehistory_tracking && !instance_variable_defined?(:@activehistory_finish) || @activehistory_finish.nil?
         @activehistory_finish = !Thread.current[:activehistory_event]
       end
       @activehistory_timestamp = Time.now.utc
@@ -69,11 +78,11 @@ module ActiveHistory::Adapter
     
     def activehistory_complete
       @activehistory_timestamp = nil
-      if instance_variable_defined?(:@activehistory_finish) && @activehistory_finish && activehistory_tracking
+      if instance_variable_defined?(:@activehistory_finish) && @activehistory_finish# && activehistory_tracking
         activehistory_event.save! if activehistory_event
         Thread.current[:activehistory_event] = nil
-        @activehistory_timestamp = nil
       end
+      @activehistory_finish = nil
     end
     
     def activehistory_tracking
@@ -114,9 +123,10 @@ module ActiveHistory::Adapter
       return if type == :update && diff.size == 0
       
       if !activehistory_tracking[:habtm_model]
-        activehistory_event.action!({
+        activehistory_event.action_for(self.class.base_class.model_name.name, id) || activehistory_event.action!({
           type: type,
-          subject: self.activehistory_id,
+          subject_type: self.class.base_class.model_name.name,
+          subject_id: id,
           diff: diff,
           timestamp: @activehistory_timestamp
         })
@@ -130,17 +140,26 @@ module ActiveHistory::Adapter
             self.send("#{areflection.name.to_s.singularize}_ids").each do |fid|
               next unless fid
               activehistory_association_udpated(areflection, fid, added: [diff['id'][1]], timestamp: activehistory_timestamp)
-              activehistory_association_udpated(areflection.klass.reflect_on_association(areflection.options[:inverse_of]), diff['id'][1], added: [fid], timestamp: activehistory_timestamp, type: :create)
+              
+              if inverse = areflection.klass.reflect_on_association(areflection.options[:inverse_of])
+                activehistory_association_udpated(inverse, diff['id'][1], added: [fid], timestamp: activehistory_timestamp, type: :create)
+              else
+                puts "NO INVERSE for #{areflection.klass.name}.#{areflection.name}!!!"
+              end
             end
           elsif areflection.macro == :has_and_belongs_to_many && type == :destroy
             self.send("#{areflection.name.to_s.singularize}_ids").each do |fid|
               activehistory_association_udpated(areflection, fid, removed: [diff['id'][0]], timestamp: activehistory_timestamp, type: :update)
-              activehistory_association_udpated(areflection.klass.reflect_on_association(areflection.options[:inverse_of]), diff['id'][0], removed: [fid], timestamp: activehistory_timestamp, type: :update)
+              if inverse = areflection.klass.reflect_on_association(areflection.options[:inverse_of])
+                activehistory_association_udpated(inverse, diff['id'][0], removed: [fid], timestamp: activehistory_timestamp, type: :update)
+              else
+                puts "NO INVERSE for #{areflection.klass.name}.#{areflection.name}!!!"
+              end
             end
           end
         end
         
-        next unless reflection.macro == :belongs_to && (type == :destroy || diff.has_key?(foreign_key))
+        next unless reflection.macro == :belongs_to && (type == :destroy || (diff.has_key?(foreign_key) && !diff[foreign_key].nil?))
         
         case type
         when :create
@@ -167,6 +186,8 @@ module ActiveHistory::Adapter
     end
 
     def activehistory_association_udpated(reflection, id, added: [], removed: [], timestamp: nil, type: :update)
+      return if !activehistory_tracking
+
       if inverse_of = activehistory_tracking.dig(:habtm_model, reflection.name, :inverse_of)
         inverse_of = reflection.klass.reflect_on_association(inverse_of)
       else
@@ -180,10 +201,11 @@ module ActiveHistory::Adapter
       
       model_name = reflection.klass.base_class.model_name.name
       
-      action = activehistory_event.action_for("#{model_name}/#{id}") || activehistory_event.action!({
+      action = activehistory_event.action_for(model_name, id) || activehistory_event.action!({
         type: type,
-        subject: "#{model_name}/#{id}",
-        timestamp: timestamp# || Time.now
+        subject_type: model_name,
+        subject_id: id,
+        timestamp: timestamp
       })
       
       action.diff ||= {}
@@ -198,5 +220,46 @@ module ActiveHistory::Adapter
       end
     end
 
+  end
+end
+
+
+module ActiveRecord
+  module Associations
+    class CollectionAssociation
+      private
+      def replace_records(new_target, original_target)
+        removed_records = target - new_target
+        added_records = new_target - target
+        
+        delete(removed_records)
+
+        unless concat(added_records)
+          @target = original_target
+          raise RecordNotSaved, "Failed to replace #{reflection.name} because one or more of the " \
+                                "new records could not be saved."
+        end
+        
+        if !owner.new_record?
+          diff_key = "#{self.reflection.name.to_s.singularize}_ids"
+          if action = owner.activehistory_event.action_for(self.owner.model_name.name, self.owner.id)
+            action.diff[diff_key] ||= [[], []]
+            action.diff[diff_key][0] |= removed_records.map(&:id)
+            action.diff[diff_key][1] |= added_records.map(&:id)
+          else
+            owner.activehistory_event.action!({
+              type: :update,
+              timestamp: owner.activehistory_timestamp,
+              subject_id: self.owner.id,
+              subject_type: self.owner.model_name.name,
+              diff: { diff_key => [removed_records.map(&:id), added_records.map(&:id)] }
+            })
+          end
+        end
+
+        target
+      end
+      
+    end
   end
 end

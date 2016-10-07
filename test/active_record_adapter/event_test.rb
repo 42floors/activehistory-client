@@ -10,12 +10,13 @@ class EventTest < ActiveSupport::TestCase
   test 'Data captured from Event encalpsulation' do
     data = {
       ip: '127.0.0.1',
-      user_agent: 'user-agent',
-      session_id: 'session-id',
-      account:    'model/id',
-      api_key:    'api-key',
-      metadata:   {random: 'stuff'},
-      timestamp:  Time.now
+      user_agent:         'user-agent',
+      session_id:         'session-id',
+      performed_by_type:  'model',
+      performed_by_id:    'id',
+      api_key:            'api-key',
+      metadata:           {random: 'stuff'},
+      timestamp:          Time.now
     }
     
     # TODO: timestamp:  @attrs[:timestamp].iso8601(3),

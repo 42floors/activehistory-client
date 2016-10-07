@@ -23,7 +23,8 @@ class HasManyAssociationTest < ActiveSupport::TestCase
           property_id: [nil, @property.id],
           format: [nil, @photo.format]
         },
-        subject: "Photo/#{@photo.id}",
+        subject_type: "Photo",
+        subject_id: @photo.id,
         timestamp: @time.iso8601(3),
         type: 'create'
       }.as_json
@@ -31,7 +32,8 @@ class HasManyAssociationTest < ActiveSupport::TestCase
       assert_equal req_data['actions'][1], {
         timestamp: @time.iso8601(3),
         type: 'update',
-        subject: "Property/#{@property.id}",
+        subject_type: "Property",
+        subject_id: @property.id,
         diff: {
           photo_ids: [[], [@photo.id]]
         }
@@ -54,7 +56,8 @@ class HasManyAssociationTest < ActiveSupport::TestCase
         diff: {
           property_id: [@property.id, nil]
         },
-        subject: "Photo/#{@photo.id}",
+        subject_type: "Photo",
+        subject_id: @photo.id,
         timestamp: @time.iso8601(3),
         type: 'update'
       }.as_json
@@ -62,7 +65,8 @@ class HasManyAssociationTest < ActiveSupport::TestCase
       assert_equal req_data['actions'][1], {
         timestamp: @time.iso8601(3),
         type: 'update',
-        subject: "Property/#{@property.id}",
+        subject_type: "Property",
+        subject_id: @property.id,
         diff: {
           photo_ids: [[@photo.id], []]
         }

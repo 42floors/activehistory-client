@@ -1,6 +1,6 @@
 class ActiveHistory::Action
 
-  attr_accessor :type, :timestamp, :subject, :diff
+  attr_accessor :type, :timestamp, :subject_type, :subject_id, :diff
 
   def initialize(attrs)
     attrs.each do |k,v|
@@ -11,7 +11,8 @@ class ActiveHistory::Action
   def as_json
     {
       diff: diff.as_json,
-      subject:   @subject,
+      subject_type: @subject_type,
+      subject_id:   @subject_id,
       timestamp:    @timestamp.iso8601(3),
       type:         @type
     }

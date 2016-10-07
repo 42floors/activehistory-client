@@ -7,7 +7,7 @@ module ActiveHistory
   end
   
   def self.configured?
-    class_variable_defined?(:@@connection)
+    class_variable_defined?(:@@connection) && !@@connection.nil?
   end
   
   def self.url
@@ -17,10 +17,10 @@ module ActiveHistory
   def self.encapsulate(id_or_options=nil)
     Thread.current[:activehistory_event] = id_or_options
     yield
-  ensure
     if Thread.current[:activehistory_event].is_a?(ActiveHistory::Event)
       Thread.current[:activehistory_event].save!
     end
+  ensure
     Thread.current[:activehistory_event] = nil
   end
   

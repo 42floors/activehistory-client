@@ -20,7 +20,8 @@ class DestroyTest < ActiveSupport::TestCase
       assert_equal req_data['actions'][0], {
         timestamp: @time.iso8601(3),
         type: 'destroy',
-        subject: "Property/#{@property.id}",
+        subject_type: "Property",
+        subject_id: @property.id,
         diff: {
           id: [@property.id, nil],
           name: [@property.name, nil],
