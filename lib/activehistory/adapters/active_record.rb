@@ -229,6 +229,8 @@ module ActiveRecord
     class CollectionAssociation
       private
       def replace_records(new_target, original_target)
+        activehistory_start # To clean up is not in save
+        
         removed_records = target - new_target
         added_records = new_target - target
         
@@ -257,7 +259,24 @@ module ActiveRecord
           end
         end
 
+        activehistory_complete # Clean up if not in save
         target
+      end
+      
+      def activehistory_start
+        if !instance_variable_defined?(:@activehistory_finish) || @activehistory_finish.nil?
+          @activehistory_finish = !Thread.current[:activehistory_event]
+        end
+        @activehistory_timestamp = Time.now.utc
+      end
+    
+      def activehistory_complete
+        @activehistory_timestamp = nil
+        if instance_variable_defined?(:@activehistory_finish) && @activehistory_finish# && activehistory_tracking
+          owner.activehistory_event.save! if owner.activehistory_event
+          Thread.current[:activehistory_event] = nil
+        end
+        @activehistory_finish = nil
       end
       
     end
