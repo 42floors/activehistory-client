@@ -1,6 +1,8 @@
 module ActiveHistory::Adapter
   module ActiveRecord
     extend ActiveSupport::Concern
+    
+    UUIDV4 = /^[0-9A-F]{8}-[0-9A-F]{4}-[4][0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i
   
     class_methods do
     
@@ -77,11 +79,12 @@ module ActiveHistory::Adapter
     end
     
     def activehistory_complete
-      @activehistory_timestamp = nil
-      if instance_variable_defined?(:@activehistory_finish) && @activehistory_finish# && activehistory_tracking
+      if instance_variable_defined?(:@activehistory_finish) && @activehistory_finish
         activehistory_event.save! if activehistory_event
         Thread.current[:activehistory_event] = nil
       end
+    ensure
+      @activehistory_timestamp = nil
       @activehistory_finish = nil
     end
     
@@ -98,7 +101,12 @@ module ActiveHistory::Adapter
       when Hash
         Thread.current[:activehistory_event][:timestamp] ||= @activehistory_timestamp
         Thread.current[:activehistory_event] = ActiveHistory::Event.new(Thread.current[:activehistory_event])
-      when Fixnum
+      when String
+        Thread.current[:activehistory_event] = if Thread.current[:activehistory_event] =~ UUIDV4
+          ActiveHistory::Event.new(id: Thread.current[:activehistory_event])
+        else
+          ActiveHistory::Event.new(timestamp: @activehistory_timestamp)
+        end
       else
         Thread.current[:activehistory_event] = ActiveHistory::Event.new(timestamp: @activehistory_timestamp)
       end
@@ -263,20 +271,37 @@ module ActiveRecord
         target
       end
       
-      def activehistory_start
-        if !instance_variable_defined?(:@activehistory_finish) || @activehistory_finish.nil?
-          @activehistory_finish = !Thread.current[:activehistory_event]
+      def delete_or_destroy(records, method)
+        activehistory_start(:delete_or_destroy) # To clean up is not in save
+
+        records = records.flatten
+        records.each { |record| raise_on_type_mismatch!(record) }
+        existing_records = records.reject(&:new_record?)
+
+        result = if existing_records.empty?
+          remove_records(existing_records, records, method)
+        else
+          transaction { remove_records(existing_records, records, method) }
+        end
+
+        activehistory_complete(:delete_or_destroy) # Clean up if not in save
+        result
+      end
+              
+      def activehistory_start(namespace = :none)
+        if @activehistory_finish.nil?
+          @activehistory_finish = [namespace, !Thread.current[:activehistory_event]]
         end
         @activehistory_timestamp = Time.now.utc
       end
     
-      def activehistory_complete
-        @activehistory_timestamp = nil
-        if instance_variable_defined?(:@activehistory_finish) && @activehistory_finish# && activehistory_tracking
+      def activehistory_complete(namespace = :none)
+        if !@activehistory_finish.nil? && @activehistory_finish[0] == namespace && @activehistory_finish[1]
           owner.activehistory_event.save! if owner.activehistory_event
+          @activehistory_timestamp = nil
           Thread.current[:activehistory_event] = nil
+          @activehistory_finish = nil
         end
-        @activehistory_finish = nil
       end
       
     end

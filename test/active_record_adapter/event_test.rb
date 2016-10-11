@@ -14,7 +14,6 @@ class EventTest < ActiveSupport::TestCase
       session_id:         'session-id',
       performed_by_type:  'model',
       performed_by_id:    'id',
-      api_key:            'api-key',
       metadata:           {random: 'stuff'},
       timestamp:          Time.now
     }
@@ -55,6 +54,23 @@ class EventTest < ActiveSupport::TestCase
     ActiveHistory.encapsulate { create(:unobserved_model) }
 
     assert_not_requested :any, /^http:\/\/activehistory.com\/.*/
+  end
+  
+  test 'Appending actions to an existing event' do
+    property = nil
+    ActiveHistory.encapsulate("ddb666bd-73c8-4952-ab07-3a45e88f701b") {
+      property = create(:property)
+    }
+
+    assert_requested(:post, "http://activehistory.com/actions", times: 1) do |req|
+      req_data = JSON.parse(req.body)
+      
+      assert_equal 1, req_data['actions'].size
+      req_data['actions'][0]['diff'].each do |k, v|
+        assert_equal property.send(k).is_a?(Time) ? property.send(k).utc.iso8601(3) : property.send(k).as_json, v[1]
+      end
+    end
+
   end
   
 end

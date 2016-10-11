@@ -14,12 +14,13 @@ module ActiveHistory
     @@connection.url
   end
 
-  def self.encapsulate(id_or_options=nil)
+  def self.encapsulate(id_or_options={})
     Thread.current[:activehistory_event] = id_or_options
     yield
-    if Thread.current[:activehistory_event].is_a?(ActiveHistory::Event)
+    event = if Thread.current[:activehistory_event].is_a?(ActiveHistory::Event)
       Thread.current[:activehistory_event].save!
     end
+    event
   ensure
     Thread.current[:activehistory_event] = nil
   end

@@ -10,7 +10,7 @@ class ActiveHistory::Action
   
   def as_json
     {
-      diff: diff.as_json,
+      diff:         diff.as_json,
       subject_type: @subject_type,
       subject_id:   @subject_id,
       timestamp:    @timestamp.iso8601(3),
