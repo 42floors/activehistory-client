@@ -128,7 +128,7 @@ module ActiveHistory::Adapter
         diff = self.attributes.select { |k| !activehistory_tracking[:exclude].include?(k.to_sym) }.map { |k, i| [k, [i, nil]] }.to_h
       end
       
-      return if type == :update && diff.size == 0
+      return if type == :update && (diff.keys - (self.send(:timestamp_attributes_for_update) + self.send(:timestamp_attributes_for_create)).map(&:to_s)).empty?
       
       if !activehistory_tracking[:habtm_model]
         activehistory_event.action_for(self.class.base_class.model_name.name, id) || activehistory_event.action!({
