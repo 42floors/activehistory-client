@@ -80,7 +80,7 @@ module ActiveHistory::Adapter
     
     def activehistory_complete
       if instance_variable_defined?(:@activehistory_finish) && @activehistory_finish
-        activehistory_event.save! if activehistory_event
+        activehistory_event.save! if ActiveHistory.configured?
         Thread.current[:activehistory_event] = nil
       end
     ensure
@@ -297,7 +297,7 @@ module ActiveRecord
     
       def activehistory_complete(namespace = :none)
         if !@activehistory_finish.nil? && @activehistory_finish[0] == namespace && @activehistory_finish[1]
-          owner.activehistory_event.save! if owner.activehistory_event
+          owner.activehistory_event.save! if ActiveHistory.configured?
           @activehistory_timestamp = nil
           Thread.current[:activehistory_event] = nil
           @activehistory_finish = nil

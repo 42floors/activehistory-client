@@ -49,8 +49,4 @@ class ActiveHistory::Event
     }
   end
   
-  def encapsulate
-  ensure
-  end
-
 end
