@@ -8,18 +8,15 @@ class ActiveHistory::Connection
   def initialize(config)
     if config[:url]
       uri = URI.parse(config.delete(:url))
-      config[:api_key] ||= (uri.user ? CGI.unescape(uri.user) : nil)
-      config[:host]    ||= uri.host
-      config[:port]    ||= uri.port
-      config[:ssl] ||= (uri.scheme == 'https')
+      config[:api_key]  ||= (uri.user ? CGI.unescape(uri.user) : nil)
+      config[:host]     ||= uri.host
+      config[:port]     ||= uri.port
+      config[:ssl]      ||= (uri.scheme == 'https')
     end
 
     [:api_key, :host, :port, :ssl, :user_agent].each do |key|
       self.instance_variable_set(:"@#{key}", config[key])
     end
-
-    @connection = Net::HTTP.new(host, port)
-    @connection.use_ssl = ssl
 
     true
   end
@@ -61,27 +58,18 @@ class ActiveHistory::Connection
     return_value = nil
     retry_count = 0
     begin
-      @connection.request(request) do |response|
-        if response['API-Version-Deprecated']
-          logger.warn("DEPRECATION WARNING: API v#{API_VERSION} is being phased out")
-        end
-
+      connection = Net::HTTP.new(host, port)
+      connection.use_ssl = ssl
+      connection.request(request) do |response|
         validate_response_code(response)
-
-        # Get the cookies
-        response.each_header do |key, value|
-          if key.downcase == 'set-cookie' && Thread.current[:sunstone_cookie_store]
-            Thread.current[:sunstone_cookie_store].set_cookie(request_uri, value)
-          end
-        end
-
+        
         if block_given?
-          return_value =yield(response)
+          return_value = yield(response)
         else
-          return_value =response
+          return_value = response
         end
       end
-    rescue ActiveRecord::ConnectionNotEstablished
+    rescue ActiveHistory::Exception::ServiceUnavailable
       retry_count += 1
       retry_count == 1 ? retry : raise
     end
