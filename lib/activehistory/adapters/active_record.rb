@@ -265,6 +265,48 @@ module ActiveRecord
               diff: { diff_key => [removed_records.map(&:id), added_records.map(&:id)] }
             })
           end
+
+          ainverse_of = self.klass.reflect_on_association(self.options[:inverse_of])
+          if ainverse_of
+            model_name = ainverse_of.active_record.base_class.model_name.name
+
+            removed_records.each do |removed_record|
+              action = owner.activehistory_event.action_for(model_name, removed_record.id) || owner.activehistory_event.action!({
+                type: :update,
+                subject_type: model_name,
+                subject_id: removed_record.id,
+                timestamp: owner.activehistory_timestamp
+              })
+              action.diff ||= {}
+              if ainverse_of.collection?
+                diff_key = "#{ainverse_of.name.to_s.singularize}_ids"
+                action.diff[diff_key] ||= [[], []]
+                action.diff[diff_key][0] |= [removed_record.id]
+              else
+                diff_key = "#{ainverse_of.name}_id"
+                action.diff[diff_key] ||= [owner.id, nil]
+              end
+            end
+
+            added_records.each do |added_record|
+              action = owner.activehistory_event.action_for(model_name, added_record.id) || owner.activehistory_event.action!({
+                type: :update,
+                subject_type: model_name,
+                subject_id: added_record.id,
+                timestamp: owner.activehistory_timestamp
+              })
+              action.diff ||= {}
+              if ainverse_of.collection?
+                diff_key = "#{ainverse_of.name.to_s.singularize}_ids"
+                action.diff[diff_key] ||= [[], []]
+                action.diff[diff_key][1] |= [added_record.id]
+              else
+                diff_key = "#{ainverse_of.name}_id"
+                action.diff[diff_key] ||= [added_record.send("#{diff_key}_was"), owner.id]
+              end
+            end
+
+          end
         end
 
         activehistory_complete # Clean up if not in save
@@ -287,16 +329,16 @@ module ActiveRecord
         activehistory_complete(:delete_or_destroy) # Clean up if not in save
         result
       end
-              
+
       def activehistory_start(namespace = :none)
-        if @activehistory_finish.nil?
+        if !instance_variable_defined?(:@activehistory_finish) || @activehistory_finish.nil?
           @activehistory_finish = [namespace, !Thread.current[:activehistory_event]]
         end
         @activehistory_timestamp = Time.now.utc
       end
     
       def activehistory_complete(namespace = :none)
-        if !@activehistory_finish.nil? && @activehistory_finish[0] == namespace && @activehistory_finish[1]
+        if instance_variable_defined?(:@activehistory_finish) && !@activehistory_finish.nil? && @activehistory_finish[0] == namespace && @activehistory_finish[1]
           owner.activehistory_event.save! if ActiveHistory.configured?
           @activehistory_timestamp = nil
           Thread.current[:activehistory_event] = nil
