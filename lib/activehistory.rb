@@ -15,17 +15,16 @@ module ActiveHistory
   end
 
   def self.encapsulate(id_or_options={})
-    if configured?
-      Thread.current[:activehistory_event] = id_or_options
-      yield
-      event = if Thread.current[:activehistory_event].is_a?(ActiveHistory::Event)
-        Thread.current[:activehistory_event].save!
-      end
-      event
-    else
-      yield
+    Thread.current[:activehistory_save_lock] = true
+    Thread.current[:activehistory_event] = id_or_options
+    
+    yield
+    
+    if configured? && Thread.current[:activehistory_event].is_a?(ActiveHistory::Event)
+      Thread.current[:activehistory_event].save!
     end
   ensure
+    Thread.current[:activehistory_save_lock] = false
     Thread.current[:activehistory_event] = nil
   end
   

@@ -12,7 +12,7 @@ class EmailAddress < ActiveRecord::Base
   
   track
   
-  belongs_to :account
+  belongs_to :account, inverse_of: :email_address
   
 end
 

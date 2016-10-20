@@ -7,14 +7,9 @@ module ActiveHistory::Adapter
     class_methods do
     
       def self.extended(other)
-        other.before_save     :activehistory_start
-        other.before_destroy  :activehistory_start
-        
-        other.after_create  { activehistory_track(:create) }
-        other.after_update  { activehistory_track(:update) }
-        other.before_destroy { activehistory_track(:destroy) }
-        
-        other.after_commit  { activehistory_complete }
+        other.after_create      { activehistory_track(:create) }
+        other.after_update      { activehistory_track(:update) }
+        other.before_destroy    { activehistory_track(:destroy) }
       end
       
       def inherited(subclass)
@@ -39,8 +34,6 @@ module ActiveHistory::Adapter
         }
         
         callback = ->(method, owner, record) {
-          owner.activehistory_start
-
           if inverse = owner.class.reflect_on_association(name.to_s).options[:inverse_of]
             owner.activehistory_association_udpated(
               record.class.reflect_on_association(inverse.to_s),
@@ -63,29 +56,44 @@ module ActiveHistory::Adapter
       end
     end
     
-    def activehistory_id
-      "#{self.class.name}/#{id}"
-    end
-    
     def activehistory_timestamp
       @activehistory_timestamp ||= Time.now.utc
     end
     
-    def activehistory_start
-      if activehistory_tracking && !instance_variable_defined?(:@activehistory_finish) || @activehistory_finish.nil?
-        @activehistory_finish = !Thread.current[:activehistory_event]
-      end
+    def with_transaction_returning_status
       @activehistory_timestamp = Time.now.utc
-    end
-    
-    def activehistory_complete
-      if instance_variable_defined?(:@activehistory_finish) && @activehistory_finish
-        activehistory_event.save! if ActiveHistory.configured?
-        Thread.current[:activehistory_event] = nil
+      if !Thread.current[:activehistory_save_lock]
+        run_save = true
+        Thread.current[:activehistory_save_lock] = true
       end
+
+      status = nil
+      self.class.transaction do
+        add_to_transaction
+        begin
+          status = yield
+        rescue ::ActiveRecord::Rollback
+          clear_transaction_record_state
+          status = nil
+        end
+
+        if status
+          activehistory_event&.save! if run_save && ActiveHistory.configured?
+        else
+          raise ::ActiveRecord::Rollback
+        end
+      end
+      status
     ensure
       @activehistory_timestamp = nil
-      @activehistory_finish = nil
+      if run_save
+        Thread.current[:activehistory_save_lock] = false
+        Thread.current[:activehistory_event] = nil
+      end
+
+      if @transaction_state && @transaction_state.committed?
+        clear_transaction_record_state
+      end
     end
     
     def activehistory_tracking
@@ -208,7 +216,6 @@ module ActiveHistory::Adapter
       end
       
       model_name = reflection.klass.base_class.model_name.name
-      
       action = activehistory_event.action_for(model_name, id) || activehistory_event.action!({
         type: type,
         subject_type: model_name,
@@ -235,114 +242,176 @@ end
 module ActiveRecord
   module Associations
     class CollectionAssociation
-      private
-      def replace_records(new_target, original_target)
-        activehistory_start # To clean up is not in save
-        
-        removed_records = target - new_target
-        added_records = new_target - target
-        
-        delete(removed_records)
+      
+      def delete_all(dependent = nil)
+        activehistory_encapsulate do
+          if dependent && ![:nullify, :delete_all].include?(dependent)
+            raise ArgumentError, "Valid values are :nullify or :delete_all"
+          end
 
-        unless concat(added_records)
-          @target = original_target
-          raise RecordNotSaved, "Failed to replace #{reflection.name} because one or more of the " \
-                                "new records could not be saved."
-        end
-        
-        if !owner.new_record?
-          diff_key = "#{self.reflection.name.to_s.singularize}_ids"
-          if action = owner.activehistory_event.action_for(self.owner.model_name.name, self.owner.id)
-            action.diff[diff_key] ||= [[], []]
-            action.diff[diff_key][0] |= removed_records.map(&:id)
-            action.diff[diff_key][1] |= added_records.map(&:id)
+          dependent = if dependent
+                        dependent
+                      elsif options[:dependent] == :destroy
+                        :delete_all
+                      else
+                        options[:dependent]
+                      end
+
+          if dependent == :delete_all
+
           else
-            owner.activehistory_event.action!({
+            removed_ids = self.scope.pluck(:id)
+          
+            diff_key = "#{self.reflection.name.to_s.singularize}_ids"
+            model_name = self.reflection.active_record.base_class.model_name.name
+            action = owner.activehistory_event.action_for(model_name, owner.id) || owner.activehistory_event.action!({
               type: :update,
-              timestamp: owner.activehistory_timestamp,
-              subject_id: self.owner.id,
-              subject_type: self.owner.model_name.name,
-              diff: { diff_key => [removed_records.map(&:id), added_records.map(&:id)] }
+              subject_type: model_name,
+              subject_id: owner.id,
+              timestamp: owner.activehistory_timestamp
             })
+            action.diff ||= {}
+            action.diff[diff_key] ||= [[], []]
+            action.diff[diff_key][0] |= removed_ids
+          
+            ainverse_of = self.klass.reflect_on_association(self.options[:inverse_of])
+            if ainverse_of
+              model_name = ainverse_of.active_record.base_class.model_name.name
+              removed_ids.each do |removed_id|
+                action = owner.activehistory_event.action_for(model_name, removed_id) || owner.activehistory_event.action!({
+                  type: :update,
+                  subject_type: model_name,
+                  subject_id: removed_id,
+                  timestamp: owner.activehistory_timestamp
+                })
+                action.diff ||= {}
+                if ainverse_of.collection?
+                  diff_key = "#{ainverse_of.name.to_s.singularize}_ids"
+                  action.diff[diff_key] ||= [[], []]
+                  action.diff[diff_key][0] |= [owner.id]
+                else
+                  diff_key = "#{ainverse_of.name}_id"
+                  action.diff[diff_key] ||= [owner.id, nil]
+                end
+              end
+            end
           end
 
-          ainverse_of = self.klass.reflect_on_association(self.options[:inverse_of])
-          if ainverse_of
-            model_name = ainverse_of.active_record.base_class.model_name.name
-
-            removed_records.each do |removed_record|
-              action = owner.activehistory_event.action_for(model_name, removed_record.id) || owner.activehistory_event.action!({
-                type: :update,
-                subject_type: model_name,
-                subject_id: removed_record.id,
-                timestamp: owner.activehistory_timestamp
-              })
-              action.diff ||= {}
-              if ainverse_of.collection?
-                diff_key = "#{ainverse_of.name.to_s.singularize}_ids"
-                action.diff[diff_key] ||= [[], []]
-                action.diff[diff_key][0] |= [removed_record.id]
-              else
-                diff_key = "#{ainverse_of.name}_id"
-                action.diff[diff_key] ||= [owner.id, nil]
-              end
-            end
-
-            added_records.each do |added_record|
-              action = owner.activehistory_event.action_for(model_name, added_record.id) || owner.activehistory_event.action!({
-                type: :update,
-                subject_type: model_name,
-                subject_id: added_record.id,
-                timestamp: owner.activehistory_timestamp
-              })
-              action.diff ||= {}
-              if ainverse_of.collection?
-                diff_key = "#{ainverse_of.name.to_s.singularize}_ids"
-                action.diff[diff_key] ||= [[], []]
-                action.diff[diff_key][1] |= [added_record.id]
-              else
-                diff_key = "#{ainverse_of.name}_id"
-                action.diff[diff_key] ||= [added_record.send("#{diff_key}_was"), owner.id]
-              end
-            end
-
+          delete_or_nullify_all_records(dependent).tap do
+            reset
+            loaded!
           end
         end
+      end
+      
+      private
+      
+      def replace_records(new_target, original_target)
+        activehistory_encapsulate do
+          removed_records = target - new_target
+          added_records = new_target - target
+        
+          delete(removed_records)
 
-        activehistory_complete # Clean up if not in save
+          unless concat(added_records)
+            @target = original_target
+            raise RecordNotSaved, "Failed to replace #{reflection.name} because one or more of the " \
+                                  "new records could not be saved."
+          end
+        
+          if !owner.new_record?
+            diff_key = "#{self.reflection.name.to_s.singularize}_ids"
+            if action = owner.activehistory_event.action_for(self.owner.model_name.name, self.owner.id)
+              action.diff[diff_key] ||= [[], []]
+              action.diff[diff_key][0] |= removed_records.map(&:id)
+              action.diff[diff_key][1] |= added_records.map(&:id)
+            else
+              owner.activehistory_event.action!({
+                type: :update,
+                timestamp: owner.activehistory_timestamp,
+                subject_id: self.owner.id,
+                subject_type: self.owner.model_name.name,
+                diff: { diff_key => [removed_records.map(&:id), added_records.map(&:id)] }
+              })
+            end
+          
+            ainverse_of = self.klass.reflect_on_association(self.options[:inverse_of])
+            if ainverse_of
+              model_name = ainverse_of.active_record.base_class.model_name.name
+
+              removed_records.each do |removed_record|
+                action = owner.activehistory_event.action_for(model_name, removed_record.id) || owner.activehistory_event.action!({
+                  type: :update,
+                  subject_type: model_name,
+                  subject_id: removed_record.id,
+                  timestamp: owner.activehistory_timestamp
+                })
+                action.diff ||= {}
+                if ainverse_of.collection?
+                  diff_key = "#{ainverse_of.name.to_s.singularize}_ids"
+                  action.diff[diff_key] ||= [[], []]
+                  action.diff[diff_key][0] |= [removed_record.id]
+                else
+                  diff_key = "#{ainverse_of.name}_id"
+                  action.diff[diff_key] ||= [owner.id, nil]
+                end
+              end
+
+              added_records.each do |added_record|
+                action = owner.activehistory_event.action_for(model_name, added_record.id) || owner.activehistory_event.action!({
+                  type: :update,
+                  subject_type: model_name,
+                  subject_id: added_record.id,
+                  timestamp: owner.activehistory_timestamp
+                })
+                action.diff ||= {}
+                if ainverse_of.collection?
+                  diff_key = "#{ainverse_of.name.to_s.singularize}_ids"
+                  action.diff[diff_key] ||= [[], []]
+                  action.diff[diff_key][1] |= [added_record.id]
+                else
+                  diff_key = "#{ainverse_of.name}_id"
+                  action.diff[diff_key] ||= [added_record.send("#{diff_key}_was"), owner.id]
+                end
+              end
+
+            end
+          end
+        end
+        
         target
       end
       
       def delete_or_destroy(records, method)
-        activehistory_start(:delete_or_destroy) # To clean up is not in save
+        activehistory_encapsulate do
+          records = records.flatten
+          records.each { |record| raise_on_type_mismatch!(record) }
+          existing_records = records.reject(&:new_record?)
 
-        records = records.flatten
-        records.each { |record| raise_on_type_mismatch!(record) }
-        existing_records = records.reject(&:new_record?)
-
-        result = if existing_records.empty?
-          remove_records(existing_records, records, method)
-        else
-          transaction { remove_records(existing_records, records, method) }
+          result = if existing_records.empty?
+            remove_records(existing_records, records, method)
+          else
+            transaction { remove_records(existing_records, records, method) }
+          end
         end
-
-        activehistory_complete(:delete_or_destroy) # Clean up if not in save
-        result
       end
-
-      def activehistory_start(namespace = :none)
-        if !instance_variable_defined?(:@activehistory_finish) || @activehistory_finish.nil?
-          @activehistory_finish = [namespace, !Thread.current[:activehistory_event]]
-        end
+      
+      def activehistory_encapsulate
         @activehistory_timestamp = Time.now.utc
-      end
-    
-      def activehistory_complete(namespace = :none)
-        if instance_variable_defined?(:@activehistory_finish) && !@activehistory_finish.nil? && @activehistory_finish[0] == namespace && @activehistory_finish[1]
-          owner.activehistory_event.save! if ActiveHistory.configured?
-          @activehistory_timestamp = nil
+        if !Thread.current[:activehistory_save_lock]
+          run_save = true
+          Thread.current[:activehistory_save_lock] = true
+        end
+      
+        result = yield
+
+        owner.activehistory_event&.save! if run_save && ActiveHistory.configured?
+        result
+      ensure
+        @activehistory_timestamp = nil
+        if run_save
+          Thread.current[:activehistory_save_lock] = false
           Thread.current[:activehistory_event] = nil
-          @activehistory_finish = nil
         end
       end
       
