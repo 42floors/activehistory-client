@@ -44,7 +44,7 @@ module ActiveHistory::Adapter
           else
             puts "NO INVERSE for #{owner.class.name}.#{name}!!!"
           end
-
+          
           record.activehistory_association_udpated(
             owner.class.reflect_on_association(name.to_s),
             record.id,
@@ -338,7 +338,6 @@ module ActiveRecord
             ainverse_of = self.klass.reflect_on_association(self.options[:inverse_of])
             if ainverse_of
               model_name = ainverse_of.active_record.base_class.model_name.name
-
               removed_records.each do |removed_record|
                 action = owner.activehistory_event.action_for(model_name, removed_record.id) || owner.activehistory_event.action!({
                   type: :update,
@@ -350,7 +349,7 @@ module ActiveRecord
                 if ainverse_of.collection?
                   diff_key = "#{ainverse_of.name.to_s.singularize}_ids"
                   action.diff[diff_key] ||= [[], []]
-                  action.diff[diff_key][0] |= [removed_record.id]
+                  action.diff[diff_key][0] |= [owner.id] #TODO; changing this to removed_record.id still passes in test... but breaks in mls test :|
                 else
                   diff_key = "#{ainverse_of.name}_id"
                   action.diff[diff_key] ||= [owner.id, nil]
@@ -368,7 +367,7 @@ module ActiveRecord
                 if ainverse_of.collection?
                   diff_key = "#{ainverse_of.name.to_s.singularize}_ids"
                   action.diff[diff_key] ||= [[], []]
-                  action.diff[diff_key][1] |= [added_record.id]
+                  action.diff[diff_key][1] |= [owner.id]#TODO; changing this to added_record.id still passes in test... but breaks in mls test :|
                 else
                   diff_key = "#{ainverse_of.name}_id"
                   action.diff[diff_key] ||= [added_record.send("#{diff_key}_was"), owner.id]

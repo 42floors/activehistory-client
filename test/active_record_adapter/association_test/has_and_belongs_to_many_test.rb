@@ -189,6 +189,50 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
     end
   end
   
+  test '::update with replacing has_and_belongs_to_many association' do
+    @property1 = create(:property)
+    @property2 = create(:property)
+    @region = create(:region, properties: [@property1])
+    WebMock::RequestRegistry.instance.reset!
+    
+    travel_to(@time) { @region.update(properties: [@property2]) }
+
+    assert_posted("/events") do |req|
+      req_data = JSON.parse(req.body)
+      assert_equal 3, req_data['actions'].size
+
+      assert_equal req_data['actions'][0], {
+        diff: {
+          property_ids: [[@property1.id], [@property2.id]]
+        },
+        subject_type: "Region",
+        subject_id: @region.id,
+        timestamp: @time.iso8601(3),
+        type: 'update'
+      }.as_json
+
+      assert_equal req_data['actions'][1], {
+        timestamp: @time.iso8601(3),
+        type: 'update',
+        subject_type: "Property",
+        subject_id: @property1.id,
+        diff: {
+          region_ids: [[@region.id], []]
+        }
+      }.as_json
+
+      assert_equal req_data['actions'][2], {
+        timestamp: @time.iso8601(3),
+        type: 'update',
+        subject_type: "Property",
+        subject_id: @property2.id,
+        diff: {
+          region_ids: [[], [@region.id]]
+        }
+      }.as_json
+    end
+  end
+  
   test '::destroying updates has_and_belongs_to_many associations' do
     @property = create(:property)
     @region = create(:region, properties: [@property])
