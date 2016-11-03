@@ -10,11 +10,8 @@ class CreateTest < ActiveSupport::TestCase
   test '::create creates an Action' do
     @property = travel_to(@time) { create(:property) }
     
-    assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal 1, req_data['actions'].size
-      
-      assert_equal req_data['actions'][0], {
+    assert_posted("/events") do      
+      assert_action_for @property, {
         diff: {
           id: [nil, @property.id],
           name: [nil, @property.name],
@@ -29,18 +26,15 @@ class CreateTest < ActiveSupport::TestCase
         subject_id: @property.id,
         timestamp: @time.iso8601(3),
         type: 'create'
-      }.as_json
+      }
     end
   end
   
   test "::create creates an Action without :excluded attributes" do
     @comment = travel_to(@time) { create(:comment) }
     
-    assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal 1, req_data['actions'].size
-      
-      assert_equal req_data['actions'][0], {
+    assert_posted("/events") do      
+      assert_action_for @comment, {
         diff: {
           id: [nil, @comment.id],
           # No Title
@@ -50,7 +44,7 @@ class CreateTest < ActiveSupport::TestCase
         subject_id: @comment.id,
         timestamp: @time.iso8601(3),
         type: 'create'
-      }.as_json
+      }
     end
   end
   

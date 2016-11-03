@@ -12,12 +12,9 @@ class HasManyAssociationTest < ActiveSupport::TestCase
     WebMock::RequestRegistry.instance.reset!
 
     @photo = travel_to(@time) { create(:photo, property: @property) }
-
-    assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal 2, req_data['actions'].size
-
-      assert_equal req_data['actions'][0], {
+    
+    assert_posted("/events") do
+      assert_action_for @photo, {
         diff: {
           id: [nil, @photo.id],
           property_id: [nil, @property.id],
@@ -27,9 +24,9 @@ class HasManyAssociationTest < ActiveSupport::TestCase
         subject_id: @photo.id,
         timestamp: @time.iso8601(3),
         type: 'create'
-      }.as_json
+      }
 
-      assert_equal req_data['actions'][1], {
+      assert_action_for @property, {
         timestamp: @time.iso8601(3),
         type: 'update',
         subject_type: "Property",
@@ -37,7 +34,7 @@ class HasManyAssociationTest < ActiveSupport::TestCase
         diff: {
           photo_ids: [[], [@photo.id]]
         }
-      }.as_json
+      }
     end
   end
 
@@ -48,11 +45,8 @@ class HasManyAssociationTest < ActiveSupport::TestCase
 
     travel_to(@time) { @photo.update(property: nil) }
 
-    assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal 2, req_data['actions'].size
-
-      assert_equal req_data['actions'][0], {
+    assert_posted("/events") do
+      assert_action_for @photo, {
         diff: {
           property_id: [@property.id, nil]
         },
@@ -60,9 +54,9 @@ class HasManyAssociationTest < ActiveSupport::TestCase
         subject_id: @photo.id,
         timestamp: @time.iso8601(3),
         type: 'update'
-      }.as_json
+      }
 
-      assert_equal req_data['actions'][1], {
+      assert_action_for @property, {
         timestamp: @time.iso8601(3),
         type: 'update',
         subject_type: "Property",
@@ -70,7 +64,7 @@ class HasManyAssociationTest < ActiveSupport::TestCase
         diff: {
           photo_ids: [[@photo.id], []]
         }
-      }.as_json
+      }
     end
   end
 
@@ -85,56 +79,50 @@ class HasManyAssociationTest < ActiveSupport::TestCase
     WebMock::RequestRegistry.instance.reset!
     
     travel_to(@time) { @property.photos = [@photo1] }
-    assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal 2, req_data['actions'].size
-      
-      assert_equal req_data['actions'][0], {
+    assert_posted("/events") do
+      assert_action_for @photo1, {
         diff: { property_id: [nil, @property.id] },
         subject_type: "Photo",
         subject_id: @photo1.id,
         timestamp: @time.iso8601(3),
         type: 'update'
-      }.as_json
+      }
 
-      assert_equal req_data['actions'][1], {
+      assert_action_for @property, {
         diff: { photo_ids: [[], [@photo1.id]] },
         subject_type: "Property",
         subject_id: @property.id,
         timestamp: @time.iso8601(3),
         type: 'update'
-      }.as_json
+      }
     end
     
     WebMock::RequestRegistry.instance.reset!
     travel_to(@time) { @property.photos = [@photo2] }
-    assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal req_data['actions'].size, 3
-      
-      assert_equal req_data['actions'][0], {
+    assert_posted("/events") do      
+      assert_action_for @photo2, {
         diff: { property_id: [nil, @property.id] },
         subject_type: "Photo",
         subject_id: @photo2.id,
         timestamp: @time.iso8601(3),
         type: 'update'
-      }.as_json
+      }
       
-      assert_equal req_data['actions'][1], {
+      assert_action_for @property, {
         diff: { photo_ids: [[@photo1.id], [@photo2.id]] },
         subject_type: "Property",
         subject_id: @property.id,
         timestamp: @time.iso8601(3),
         type: 'update'
-      }.as_json
+      }
       
-      assert_equal req_data['actions'][2], {
+      assert_action_for @photo1, {
         diff: { property_id: [@property.id, nil] },
         subject_type: "Photo",
         subject_id: @photo1.id,
         timestamp: @time.iso8601(3),
         type: 'update'
-      }.as_json
+      }
     end
   end
   
@@ -145,56 +133,50 @@ class HasManyAssociationTest < ActiveSupport::TestCase
     WebMock::RequestRegistry.instance.reset!
     
     travel_to(@time) { @property.photo_ids = [@photo1].map(&:id) }
-    assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal 2, req_data['actions'].size
-      
-      assert_equal req_data['actions'][1], {
+    assert_posted("/events") do
+      assert_action_for @property, {
         diff: { photo_ids: [[], [@photo1.id]] },
         subject_type: "Property",
         subject_id: @property.id,
         timestamp: @time.iso8601(3),
         type: 'update'
-      }.as_json
+      }
       
-      assert_equal req_data['actions'][0], {
+      assert_action_for @photo1, {
         diff: { property_id: [nil, @property.id] },
         subject_type: "Photo",
         subject_id: @photo1.id,
         timestamp: @time.iso8601(3),
         type: 'update'
-      }.as_json
+      }
     end
     
     WebMock::RequestRegistry.instance.reset!
     travel_to(@time) { @property.photo_ids = [@photo2].map(&:id) }
-    assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal req_data['actions'].size, 3
-      
-      assert_equal req_data['actions'][0], {
+    assert_posted("/events") do      
+      assert_action_for @photo2, {
         diff: { property_id: [nil, @property.id] },
         subject_type: "Photo",
         subject_id: @photo2.id,
         timestamp: @time.iso8601(3),
         type: 'update'
-      }.as_json
+      }
       
-      assert_equal req_data['actions'][1], {
+      assert_action_for @property, {
         diff: { photo_ids: [[@photo1.id], [@photo2.id]] },
         subject_type: "Property",
         subject_id: @property.id,
         timestamp: @time.iso8601(3),
         type: 'update'
-      }.as_json
+      }
       
-      assert_equal req_data['actions'][2], {
+      assert_action_for @photo1, {
         diff: { property_id: [@property.id, nil] },
         subject_type: "Photo",
         subject_id: @photo1.id,
         timestamp: @time.iso8601(3),
         type: 'update'
-      }.as_json
+      }
     end
   end
   
@@ -206,32 +188,30 @@ class HasManyAssociationTest < ActiveSupport::TestCase
     
     travel_to(@time) { @property.photos.clear }
     assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal 3, req_data['actions'].size
       
-      assert_equal req_data['actions'][0], {
+      assert_action_for @property, {
         diff: { photo_ids: [[@photo1, @photo2].map(&:id), []] },
         subject_type: "Property",
         subject_id: @property.id,
         timestamp: @time.iso8601(3),
         type: 'update'
-      }.as_json
+      }
       
-      assert_equal req_data['actions'][1], {
+      assert_action_for @photo1, {
         diff: { property_id: [@property.id, nil] },
         subject_type: "Photo",
         subject_id: @photo1.id,
         timestamp: @time.iso8601(3),
         type: 'update'
-      }.as_json
+      }
       
-      assert_equal req_data['actions'][2], {
+      assert_action_for @photo2, {
         diff: { property_id: [@property.id, nil] },
         subject_type: "Photo",
         subject_id: @photo2.id,
         timestamp: @time.iso8601(3),
         type: 'update'
-      }.as_json
+      }
     end
   end
   

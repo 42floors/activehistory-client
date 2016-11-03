@@ -17,8 +17,15 @@ class ActiveHistory::Event
     action
   end
   
-  def action_for(type, id)
-    @actions.find { |a| a.subject_type.to_s == type.to_s && a.subject_id.to_s == id.to_s }
+  def action_for(type, id, new_options=nil)
+    type = type.base_class.model_name.name if !type.is_a?(String)
+    action = @actions.find { |a| a.subject_type.to_s == type.to_s && a.subject_id.to_s == id.to_s }
+    
+    if new_options
+      action || action!({ subject_type: type, subject_id: id, type: :update }.merge(new_options))
+    else
+      action
+    end
   end
   
   def save!

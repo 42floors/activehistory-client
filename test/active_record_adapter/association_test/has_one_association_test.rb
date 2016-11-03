@@ -13,11 +13,8 @@ class HasOneAssociationTest < ActiveSupport::TestCase
     
     @account = travel_to(@time) { create(:account, email_address: @email_address) }
     
-    assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal 2, req_data['actions'].size
-      
-      assert_equal req_data['actions'][0], {
+    assert_posted("/events") do      
+      assert_action_for @account, {
         diff: {
           id: [nil, @account.id],
           name: [nil, @account.name],
@@ -28,9 +25,9 @@ class HasOneAssociationTest < ActiveSupport::TestCase
         subject_id: @account.id,
         timestamp: @time.iso8601(3),
         type: 'create'
-      }.as_json
+      }
 
-      assert_equal req_data['actions'][1], {
+      assert_action_for @email_address, {
         timestamp: @time.iso8601(3),
         type: 'update',
         subject_type: "EmailAddress",
@@ -38,7 +35,7 @@ class HasOneAssociationTest < ActiveSupport::TestCase
         diff: {
           account_id: [nil, @account.id]
         }
-      }.as_json
+      }
     end
   end
     
@@ -48,11 +45,8 @@ class HasOneAssociationTest < ActiveSupport::TestCase
     
     @email_address = travel_to(@time) { create(:email_address, account: @account) }
     
-    assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal 2, req_data['actions'].size
-      
-      assert_equal req_data['actions'][0], {
+    assert_posted("/events") do      
+      assert_action_for @email_address, {
         diff: {
           id: [nil, @email_address.id],
           address: [nil, @email_address.address],
@@ -62,9 +56,9 @@ class HasOneAssociationTest < ActiveSupport::TestCase
         subject_id: @email_address.id,
         timestamp: @time.iso8601(3),
         type: 'create'
-      }.as_json
+      }
 
-      assert_equal req_data['actions'][1], {
+      assert_action_for @account, {
         timestamp: @time.iso8601(3),
         type: 'update',
         subject_type: "Account",
@@ -72,18 +66,15 @@ class HasOneAssociationTest < ActiveSupport::TestCase
         diff: {
           email_address_id: [nil, @email_address.id]
         }
-      }.as_json
+      }
     end
   end
   
   test '::create with has_one association 2' do
     @account = travel_to(@time) { create(:account, email_address: build(:email_address)) }
     
-    assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal 2, req_data['actions'].size
-      
-      assert_equal req_data['actions'][0], {
+    assert_posted("/events") do      
+      assert_action_for @account, {
         diff: {
           id: [nil, @account.id],
           name: [nil, @account.name],
@@ -94,9 +85,9 @@ class HasOneAssociationTest < ActiveSupport::TestCase
         subject_id: @account.id,
         timestamp: @time.iso8601(3),
         type: 'create'
-      }.as_json
+      }
 
-      assert_equal req_data['actions'][1], {
+      assert_action_for @account.email_address, {
         timestamp: @time.iso8601(3),
         type: 'create',
         subject_type: "EmailAddress",
@@ -106,7 +97,7 @@ class HasOneAssociationTest < ActiveSupport::TestCase
           address: [nil, @account.email_address.address],
           account_id: [nil, @account.id]
         }
-      }.as_json
+      }
     end
   end
   
@@ -117,11 +108,8 @@ class HasOneAssociationTest < ActiveSupport::TestCase
     @email_address = @account.email_address
     travel_to(@time) { @account.update(email_address: nil) }
     
-    assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal 2, req_data['actions'].size
-      
-      assert_equal req_data['actions'][0], {
+    assert_posted("/events") do
+      assert_action_for @email_address, {
         diff: {
           account_id: [@account.id, nil]
         },
@@ -129,9 +117,9 @@ class HasOneAssociationTest < ActiveSupport::TestCase
         subject_id: @email_address.id,
         timestamp: @time.iso8601(3),
         type: 'update'
-      }.as_json
+      }
 
-      assert_equal req_data['actions'][1], {
+      assert_action_for @account, {
         timestamp: @time.iso8601(3),
         type: 'update',
         subject_type: "Account",
@@ -139,7 +127,7 @@ class HasOneAssociationTest < ActiveSupport::TestCase
         diff: {
           email_address_id: [@email_address.id, nil]
         }
-      }.as_json
+      }
     end
   end
 

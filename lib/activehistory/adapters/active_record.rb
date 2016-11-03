@@ -2,8 +2,6 @@ module ActiveHistory::Adapter
   module ActiveRecord
     extend ActiveSupport::Concern
     
-    UUIDV4 = /^[0-9A-F]{8}-[0-9A-F]{4}-[4][0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i
-  
     class_methods do
     
       def self.extended(other)
@@ -14,46 +12,99 @@ module ActiveHistory::Adapter
       
       def inherited(subclass)
         super
-        
         subclass.instance_variable_set('@activehistory', @activehistory.clone) if defined?(@activehistory)
       end
       
       def track(exclude: [], habtm_model: nil)
-        options = {exclude: Array(exclude)}
+        options = { exclude: Array(exclude) }
         options[:habtm_model] = habtm_model if habtm_model
         @activehistory = options
       end
       
       def has_and_belongs_to_many(name, scope = nil, options = {}, &extension)
         super
+        name = name.to_s
         habtm_model = self.const_get("HABTM_#{name.to_s.camelize}")
         
         habtm_model.track habtm_model: {
           :left_side => { foreign_key: "#{base_class.name.underscore}_id", inverse_of: name.to_s },
-          name.to_s.singularize.to_sym => {inverse_of: self.name.underscore.pluralize.to_s}
+          name.to_s.singularize.to_sym => { inverse_of: self.name.underscore.pluralize.to_s }
         }
         
+
         callback = ->(method, owner, record) {
-          if inverse = owner.class.reflect_on_association(name.to_s).options[:inverse_of]
-            owner.activehistory_association_udpated(
-              record.class.reflect_on_association(inverse.to_s),
-              owner.id,
-              removed: [record.id],
-              timestamp: owner.activehistory_timestamp
-            )
-          else
-            puts "NO INVERSE for #{owner.class.name}.#{name}!!!"
-          end
-          
-          record.activehistory_association_udpated(
-            owner.class.reflect_on_association(name.to_s),
-            record.id,
-            removed: [owner.id],
-            timestamp: owner.activehistory_timestamp
-          )
+          owner.activehistory_association_changed(name, removed: [record.id])
         }
         self.send("after_remove_for_#{name}=", Array(self.send("after_remove_for_#{name}")).compact + [callback])
       end
+      
+      def activehistory_association_changed(id, reflection_or_relation_name, added: [], removed: [], timestamp: nil, type: :update, propagate: true)
+        return if removed.empty? && added.empty?
+        reflection = if reflection_or_relation_name.is_a?(String) || reflection_or_relation_name.is_a?(Symbol)
+          reflect_on_association(reflection_or_relation_name)
+        else
+          reflection_or_relation_name
+        end
+        puts "#{self}##{id}.#{reflection.name} +#{added.inspect} -#{removed.inspect}"
+        
+        action = ActiveHistory.current_event(timestamp: timestamp).action_for(self, id, { type: type, timestamp: timestamp })
+      
+        if reflection.collection?
+          diff_key = "#{reflection.name.to_s.singularize}_ids"
+          action.diff[diff_key] ||= [[], []]
+          action.diff[diff_key][0] |= removed
+          action.diff[diff_key][1] |= added
+        else
+          diff_key = "#{reflection.name.to_s.singularize}_id"
+          action.diff[diff_key] ||= [removed.first, added.first]
+        end
+
+        reflect_on_all_associations.each do |middle_reflection|
+          next if middle_reflection == reflection
+          middle_reflection.klass.reflect_on_all_associations.each do |through_reflection|
+            # puts [reflection, middle_reflection, through_reflection].map(&:name).inspect
+            next unless through_reflection.is_a?(::ActiveRecord::Reflection::ThroughReflection) && through_reflection.scope.nil?
+            next unless through_reflection.source_reflection_name == reflection.name
+
+            middle_reflection.klass.joins(through_reflection.through_reflection.name).where(through_reflection.through_reflection.klass.arel_table[:id].eq(id)).pluck(:id).each do |tid|
+              action = ActiveHistory.current_event(timestamp: timestamp).action_for(middle_reflection.klass, tid, { timestamp: timestamp })
+
+              if through_reflection.collection?
+                diff_key = "#{through_reflection.name.to_s.singularize}_ids"
+                action.diff[diff_key] ||= [[], []]
+                action.diff[diff_key][0] |= removed
+                action.diff[diff_key][1] |= added
+              else
+                diff_key = "#{through_reflection.name.to_s.singularize}_id"
+                action.diff[diff_key] ||= [removed.first, added.first]
+              end
+            end
+          end
+        end
+      
+        if propagate && inverse_reflection = reflection.inverse_of
+          inverse_klass = inverse_reflection.active_record
+          
+          added.each do |added_id|
+            inverse_klass.activehistory_association_changed(added_id, inverse_reflection, {
+              added: [id],
+              timestamp: timestamp,
+              type: type,
+              propagate: false
+            })
+          end
+        
+          removed.each do |removed_id|
+            inverse_klass.activehistory_association_changed(removed_id, inverse_reflection, {
+              removed: [id],
+              timestamp: timestamp,
+              type: type,
+              propagate: false
+            })
+          end
+        end
+      end
+      
     end
     
     def activehistory_timestamp
@@ -103,21 +154,7 @@ module ActiveHistory::Adapter
     end
     
     def activehistory_event
-      case Thread.current[:activehistory_event]
-      when ActiveHistory::Event
-        Thread.current[:activehistory_event]
-      when Hash
-        Thread.current[:activehistory_event][:timestamp] ||= @activehistory_timestamp
-        Thread.current[:activehistory_event] = ActiveHistory::Event.new(Thread.current[:activehistory_event])
-      when String
-        Thread.current[:activehistory_event] = if Thread.current[:activehistory_event] =~ UUIDV4
-          ActiveHistory::Event.new(id: Thread.current[:activehistory_event])
-        else
-          ActiveHistory::Event.new(timestamp: @activehistory_timestamp)
-        end
-      else
-        Thread.current[:activehistory_event] = ActiveHistory::Event.new(timestamp: @activehistory_timestamp)
-      end
+      ActiveHistory.current_event(timestamp: activehistory_timestamp)
     end
     
     def activehistory_track(type)
@@ -138,100 +175,133 @@ module ActiveHistory::Adapter
       
       return if type == :update && (diff.keys - (self.send(:timestamp_attributes_for_update) + self.send(:timestamp_attributes_for_create)).map(&:to_s)).empty?
       
-      if !activehistory_tracking[:habtm_model]
-        activehistory_event.action_for(self.class.base_class.model_name.name, id) || activehistory_event.action!({
+      if activehistory_tracking[:habtm_model]
+        if type == :create
+          self.class.reflect_on_association(:left_side).klass.activehistory_association_changed(
+            self.send(activehistory_tracking[:habtm_model][:left_side][:foreign_key]),
+            activehistory_tracking[:habtm_model][:left_side][:inverse_of],
+            added: [self.send((self.class.column_names - [activehistory_tracking[:habtm_model][:left_side][:foreign_key]]).first)],
+            timestamp: activehistory_timestamp
+          )
+        end
+      else
+        activehistory_event.action_for(self.class, id, {
           type: type,
-          subject_type: self.class.base_class.model_name.name,
-          subject_id: id,
           diff: diff,
-          timestamp: @activehistory_timestamp
+          timestamp: activehistory_timestamp
         })
-      end
-      
-      self._reflections.each do |key, reflection|
-        foreign_key = activehistory_tracking.dig(:habtm_model, reflection.name, :foreign_key) || reflection.foreign_key
-
-        if areflection = self.class.reflect_on_association(reflection.name)
-          if areflection.macro == :has_and_belongs_to_many && type == :create
-            self.send("#{areflection.name.to_s.singularize}_ids").each do |fid|
-              next unless fid
-              activehistory_association_udpated(areflection, fid, added: [diff['id'][1]], timestamp: activehistory_timestamp)
-              
-              if inverse = areflection.klass.reflect_on_association(areflection.options[:inverse_of])
-                activehistory_association_udpated(inverse, diff['id'][1], added: [fid], timestamp: activehistory_timestamp, type: :create)
-              else
-                puts "NO INVERSE for #{areflection.klass.name}.#{areflection.name}!!!"
-              end
+        
+        
+        self.class.reflect_on_all_associations.each do |reflection|
+          next if activehistory_tracking[:habtm_model]
+          
+          if reflection.macro == :has_and_belongs_to_many && type == :destroy
+            activehistory_association_changed(reflection, removed: self.send("#{reflection.name.to_s.singularize}_ids"))
+          elsif reflection.macro == :belongs_to && diff.has_key?(reflection.foreign_key)
+            case type
+            when :create
+              old_id = nil
+              new_id = diff[reflection.foreign_key][1]
+            when :destroy
+              old_id = diff[reflection.foreign_key][0]
+              new_id = nil
+            else
+              old_id = diff[reflection.foreign_key][0]
+              new_id = diff[reflection.foreign_key][1]
             end
-          elsif areflection.macro == :has_and_belongs_to_many && type == :destroy
-            self.send("#{areflection.name.to_s.singularize}_ids").each do |fid|
-              activehistory_association_udpated(areflection, fid, removed: [diff['id'][0]], timestamp: activehistory_timestamp, type: :update)
-              if inverse = areflection.klass.reflect_on_association(areflection.options[:inverse_of])
-                activehistory_association_udpated(inverse, diff['id'][0], removed: [fid], timestamp: activehistory_timestamp, type: :update)
-              else
-                puts "NO INVERSE for #{areflection.klass.name}.#{areflection.name}!!!"
-              end
+            
+            relation_id = self.id || diff.find { |k, v| k != foreign_key }[1][1]
+            
+            if reflection.polymorphic?
+            else
+              activehistory_association_changed(reflection, removed: [old_id]) if old_id
+              activehistory_association_changed(reflection, added:   [new_id]) if new_id
             end
+            
           end
         end
-        
-        next unless reflection.macro == :belongs_to && (type == :destroy || (diff.has_key?(foreign_key) && !diff[foreign_key].nil?))
-        
-        case type
-        when :create
-          old_id = nil
-          new_id = diff[foreign_key][1]
-        when :destroy
-          old_id = diff[foreign_key][0]
-          new_id = nil
-        else
-          old_id = diff[foreign_key][0]
-          new_id = diff[foreign_key][1]
-        end
-        
-        relation_id = self.id || diff.find { |k, v| k != foreign_key }[1][1]
-        
-        if reflection.polymorphic?
-        else
-          activehistory_association_udpated(reflection, old_id, removed: [relation_id], timestamp: activehistory_timestamp) if old_id
-          activehistory_association_udpated(reflection, new_id, added:   [relation_id], timestamp: activehistory_timestamp) if new_id
-        end
-        
       end
+
       
     end
 
+    def activehistory_association_changed(relation_name, added: [], removed: [], timestamp: nil, type: :update)
+      timestamp ||= activehistory_timestamp
+      
+      self.class.activehistory_association_changed(id, relation_name, {
+        added: added,
+        removed: removed,
+        timestamp: timestamp,
+        type: type
+      })
+      
+      
+    end
+    
     def activehistory_association_udpated(reflection, id, added: [], removed: [], timestamp: nil, type: :update)
-      return if !activehistory_tracking
-
-      if inverse_of = activehistory_tracking.dig(:habtm_model, reflection.name, :inverse_of)
-        inverse_of = reflection.klass.reflect_on_association(inverse_of)
+      return if !activehistory_tracking || (removed.empty? && added.empty?)
+      klass = reflection.active_record
+      inverse_klass = reflection.klass
+      
+      inverse_association = if activehistory_tracking.has_key?(:habtm_model)
+        inverse_klass.reflect_on_association(activehistory_tracking.dig(:habtm_model, reflection.name.to_s.singularize.to_sym, :inverse_of))
       else
-        inverse_of = reflection.inverse_of
+        reflection.inverse_of
       end
-
-      if inverse_of.nil?
+      
+      if inverse_association.nil?
         puts "NO INVERSE for #{self.class}.#{reflection.name}!!!"
         return
       end
       
-      model_name = reflection.klass.base_class.model_name.name
-      action = activehistory_event.action_for(model_name, id) || activehistory_event.action!({
+      action = activehistory_event.action_for(klass, id, {
         type: type,
-        subject_type: model_name,
-        subject_id: id,
         timestamp: timestamp
       })
       
       action.diff ||= {}
-      if inverse_of.collection? || activehistory_tracking[:habtm_model]
-        diff_key = "#{inverse_of.name.to_s.singularize}_ids"
+      if (reflection.collection? || activehistory_tracking[:habtm_model])
+        diff_key = "#{reflection.name.to_s.singularize}_ids"
         action.diff[diff_key] ||= [[], []]
         action.diff[diff_key][0] |= removed
         action.diff[diff_key][1] |= added
       else
-        diff_key = "#{inverse_of.name.to_s.singularize}_id"
+        diff_key = "#{reflection.name.to_s.singularize}_id"
         action.diff[diff_key] ||= [removed.first, added.first]
+      end
+      
+      removed.each do |removed_id|
+        action = activehistory_event.action_for(inverse_klass, removed_id, {
+          type: type,
+          timestamp: timestamp
+        })
+      
+        action.diff ||= {}
+        if inverse_association.collection? || activehistory_tracking[:habtm_model]
+          diff_key = "#{inverse_association.name.to_s.singularize}_ids"
+          action.diff[diff_key] ||= [[], []]
+          action.diff[diff_key][0] |= [id]
+        else
+          diff_key = "#{inverse_association.name.to_s.singularize}_id"
+          action.diff[diff_key] ||= [id, nil]
+        end
+      end
+      
+      added.each do |added_id|
+        action = activehistory_event.action_for(inverse_klass, added_id, {
+          type: type,
+          timestamp: timestamp
+        })
+      
+        action.diff ||= {}
+        if inverse_association.collection? || activehistory_tracking[:habtm_model]
+          diff_key = "#{inverse_association.name.to_s.singularize}_ids"
+          action.diff[diff_key] ||= [[], []]
+          action.diff[diff_key][1] |= [id]
+        else
+          diff_key = "#{inverse_association.name.to_s.singularize}_id"
+          action.diff[diff_key] ||= [nil, id]
+        end
       end
     end
 
@@ -262,26 +332,21 @@ module ActiveRecord
           else
             removed_ids = self.scope.pluck(:id)
           
-            diff_key = "#{self.reflection.name.to_s.singularize}_ids"
-            model_name = self.reflection.active_record.base_class.model_name.name
-            action = owner.activehistory_event.action_for(model_name, owner.id) || owner.activehistory_event.action!({
+            action = owner.activehistory_event.action_for(self.reflection.active_record, owner.id, {
               type: :update,
-              subject_type: model_name,
-              subject_id: owner.id,
               timestamp: owner.activehistory_timestamp
             })
+            
+            diff_key = "#{self.reflection.name.to_s.singularize}_ids"
             action.diff ||= {}
             action.diff[diff_key] ||= [[], []]
             action.diff[diff_key][0] |= removed_ids
           
             ainverse_of = self.klass.reflect_on_association(self.options[:inverse_of])
             if ainverse_of
-              model_name = ainverse_of.active_record.base_class.model_name.name
               removed_ids.each do |removed_id|
-                action = owner.activehistory_event.action_for(model_name, removed_id) || owner.activehistory_event.action!({
+                action = owner.activehistory_event.action_for(ainverse_of.active_record, removed_id, {
                   type: :update,
-                  subject_type: model_name,
-                  subject_id: removed_id,
                   timestamp: owner.activehistory_timestamp
                 })
                 action.diff ||= {}
@@ -320,61 +385,7 @@ module ActiveRecord
           end
         
           if !owner.new_record?
-            diff_key = "#{self.reflection.name.to_s.singularize}_ids"
-            if action = owner.activehistory_event.action_for(self.owner.model_name.name, self.owner.id)
-              action.diff[diff_key] ||= [[], []]
-              action.diff[diff_key][0] |= removed_records.map(&:id)
-              action.diff[diff_key][1] |= added_records.map(&:id)
-            else
-              owner.activehistory_event.action!({
-                type: :update,
-                timestamp: owner.activehistory_timestamp,
-                subject_id: self.owner.id,
-                subject_type: self.owner.model_name.name,
-                diff: { diff_key => [removed_records.map(&:id), added_records.map(&:id)] }
-              })
-            end
-          
-            ainverse_of = self.klass.reflect_on_association(self.options[:inverse_of])
-            if ainverse_of
-              model_name = ainverse_of.active_record.base_class.model_name.name
-              removed_records.each do |removed_record|
-                action = owner.activehistory_event.action_for(model_name, removed_record.id) || owner.activehistory_event.action!({
-                  type: :update,
-                  subject_type: model_name,
-                  subject_id: removed_record.id,
-                  timestamp: owner.activehistory_timestamp
-                })
-                action.diff ||= {}
-                if ainverse_of.collection?
-                  diff_key = "#{ainverse_of.name.to_s.singularize}_ids"
-                  action.diff[diff_key] ||= [[], []]
-                  action.diff[diff_key][0] |= [owner.id] #TODO; changing this to removed_record.id still passes in test... but breaks in mls test :|
-                else
-                  diff_key = "#{ainverse_of.name}_id"
-                  action.diff[diff_key] ||= [owner.id, nil]
-                end
-              end
-
-              added_records.each do |added_record|
-                action = owner.activehistory_event.action_for(model_name, added_record.id) || owner.activehistory_event.action!({
-                  type: :update,
-                  subject_type: model_name,
-                  subject_id: added_record.id,
-                  timestamp: owner.activehistory_timestamp
-                })
-                action.diff ||= {}
-                if ainverse_of.collection?
-                  diff_key = "#{ainverse_of.name.to_s.singularize}_ids"
-                  action.diff[diff_key] ||= [[], []]
-                  action.diff[diff_key][1] |= [owner.id]#TODO; changing this to added_record.id still passes in test... but breaks in mls test :|
-                else
-                  diff_key = "#{ainverse_of.name}_id"
-                  action.diff[diff_key] ||= [added_record.send("#{diff_key}_was"), owner.id]
-                end
-              end
-
-            end
+            owner.activehistory_association_changed(self.reflection, added: added_records.map(&:id), removed: removed_records.map(&:id))
           end
         end
         

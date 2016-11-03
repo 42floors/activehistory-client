@@ -13,11 +13,8 @@ class DestroyTest < ActiveSupport::TestCase
     
     travel_to(@time) { @property.destroy }
     
-    assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal 1, req_data['actions'].size
-      
-      assert_equal req_data['actions'][0], {
+    assert_posted("/events") do
+      assert_action_for @property, {
         timestamp: @time.iso8601(3),
         type: 'destroy',
         subject_type: "Property",

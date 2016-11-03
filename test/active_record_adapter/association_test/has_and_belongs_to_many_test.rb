@@ -12,11 +12,9 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
     WebMock::RequestRegistry.instance.reset!
 
     @region = travel_to(@time) { create(:region, properties: [@property]) }
-    assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal 2, req_data['actions'].size
-
-      assert_equal req_data['actions'][0], {
+    
+    assert_posted("/events") do
+      assert_action_for @region, {
         diff: {
           id: [nil, @region.id],
           name: [nil, @region.name],
@@ -26,9 +24,9 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
         subject_id: @region.id,
         timestamp: @time.iso8601(3),
         type: 'create'
-      }.as_json
-
-      assert_equal req_data['actions'][1], {
+      }
+      
+      assert_action_for @property, {
         timestamp: @time.iso8601(3),
         type: 'update',
         subject_type: "Property",
@@ -36,21 +34,16 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
         diff: {
           region_ids: [[], [@region.id]]
         }
-      }.as_json
+      }
     end
   end
 
   test '::create with new has_and_belongs_to_many association' do
-    WebMock::RequestRegistry.instance.reset!
-
     @region = travel_to(@time) { create(:region, properties: [build(:property)]) }
     @property = @region.properties.first
 
-    assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal 2, req_data['actions'].size
-
-      assert_equal req_data['actions'][0], {
+    assert_posted("/events") do
+      assert_action_for @region, {
         diff: {
           id: [nil, @region.id],
           name: [nil, @region.name],
@@ -60,9 +53,9 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
         subject_id: @region.id,
         timestamp: @time.iso8601(3),
         type: 'create'
-      }.as_json
+      }
 
-      assert_equal req_data['actions'][1], {
+      assert_action_for @property, {
         timestamp: @time.iso8601(3),
         type: 'create',
         subject_type: "Property",
@@ -78,7 +71,7 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
           active: [nil, @property.active],
           region_ids: [[], [@region.id]]
         }
-      }.as_json
+      }
     end
   end
 
@@ -89,11 +82,8 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
 
     travel_to(@time) { @region.update(properties: [@property]) }
 
-    assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal 2, req_data['actions'].size
-
-      assert_equal req_data['actions'][0], {
+    assert_posted("/events") do
+      assert_action_for @region, {
         diff: {
           property_ids: [[], [@property.id]]
         },
@@ -101,9 +91,9 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
         subject_id: @region.id,
         timestamp: @time.iso8601(3),
         type: 'update'
-      }.as_json
+      }
 
-      assert_equal req_data['actions'][1], {
+      assert_action_for @property, {
         timestamp: @time.iso8601(3),
         type: 'update',
         subject_type: "Property",
@@ -111,7 +101,7 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
         diff: {
           region_ids: [[], [@region.id]]
         }
-      }.as_json
+      }
     end
   end
 
@@ -122,11 +112,8 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
     travel_to(@time) { @region.update(properties: [build(:property)]) }
     @property = @region.properties.first
     
-    assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal 2, req_data['actions'].size
-
-      assert_equal req_data['actions'][0], {
+    assert_posted("/events") do
+      assert_action_for @property, {
         timestamp: @time.iso8601(3),
         type: 'create',
         subject_type: "Property",
@@ -142,9 +129,9 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
           active: [nil, @property.active],
           region_ids: [[], [@region.id]]
         }
-      }.as_json
+      }
 
-      assert_equal req_data['actions'][1], {
+      assert_action_for @region, {
         diff: {
           property_ids: [[], [@property.id]]
         },
@@ -152,7 +139,7 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
         subject_id: @region.id,
         timestamp: @time.iso8601(3),
         type: 'update'
-      }.as_json
+      }
     end
   end
 
@@ -160,14 +147,11 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
     @property = create(:property)
     @region = create(:region, properties: [@property])
     WebMock::RequestRegistry.instance.reset!
-
+    
     travel_to(@time) { @region.update(properties: []) }
 
-    assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal 2, req_data['actions'].size
-
-      assert_equal req_data['actions'][0], {
+    assert_posted("/events") do
+      assert_action_for @region, {
         diff: {
           property_ids: [[@property.id], []]
         },
@@ -175,9 +159,9 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
         subject_id: @region.id,
         timestamp: @time.iso8601(3),
         type: 'update'
-      }.as_json
+      }
 
-      assert_equal req_data['actions'][1], {
+      assert_action_for @property, {
         timestamp: @time.iso8601(3),
         type: 'update',
         subject_type: "Property",
@@ -185,7 +169,7 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
         diff: {
           region_ids: [[@region.id], []]
         }
-      }.as_json
+      }
     end
   end
   
@@ -197,11 +181,8 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
     
     travel_to(@time) { @region.update(properties: [@property2]) }
 
-    assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal 3, req_data['actions'].size
-
-      assert_equal req_data['actions'][0], {
+    assert_posted("/events") do
+      assert_action_for @region, {
         diff: {
           property_ids: [[@property1.id], [@property2.id]]
         },
@@ -209,9 +190,9 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
         subject_id: @region.id,
         timestamp: @time.iso8601(3),
         type: 'update'
-      }.as_json
+      }
 
-      assert_equal req_data['actions'][1], {
+      assert_action_for @property1, {
         timestamp: @time.iso8601(3),
         type: 'update',
         subject_type: "Property",
@@ -219,9 +200,9 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
         diff: {
           region_ids: [[@region.id], []]
         }
-      }.as_json
+      }
 
-      assert_equal req_data['actions'][2], {
+      assert_action_for @property2, {
         timestamp: @time.iso8601(3),
         type: 'update',
         subject_type: "Property",
@@ -229,7 +210,7 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
         diff: {
           region_ids: [[], [@region.id]]
         }
-      }.as_json
+      }
     end
   end
   
@@ -240,11 +221,8 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
     
     travel_to(@time) { @region.destroy }
 
-    assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal 2, req_data['actions'].size
-
-      assert_equal req_data['actions'][0], {
+    assert_posted("/events") do
+      assert_action_for @region, {
         diff: {
           id: [@region.id, nil],
           name: [@region.name, nil],
@@ -256,7 +234,7 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
         type: 'destroy'
       }.as_json
 
-      assert_equal req_data['actions'][1], {
+      assert_action_for @property, {
         timestamp: @time.iso8601(3),
         type: 'update',
         subject_type: "Property",
@@ -267,7 +245,6 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
       }.as_json
     end
   end
-
 
   test 'has_and_belongs_to_many <<'
   test 'has_and_belongs_to_many.delete'

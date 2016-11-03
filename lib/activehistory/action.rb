@@ -6,6 +6,7 @@ class ActiveHistory::Action
     attrs.each do |k,v|
       self.send("#{k}=", v)
     end
+    self.diff ||= {}
   end
   
   def as_json

@@ -14,11 +14,8 @@ class SaveTest < ActiveSupport::TestCase
     @property.name = 'Empire State Building'
     travel_to(@time) { @property.save }
     
-    assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal 1, req_data['actions'].size
-      
-      assert_equal req_data['actions'][0], {
+    assert_posted("/events") do
+      assert_action_for @property, {
         timestamp: @time.iso8601(3),
         type: 'update',
         subject_type: "Property",
@@ -38,11 +35,8 @@ class SaveTest < ActiveSupport::TestCase
     @comment.body = 'new body'
     travel_to(@time) { @comment.save }
     
-    assert_posted("/events") do |req|
-      req_data = JSON.parse(req.body)
-      assert_equal 1, req_data['actions'].size
-      
-      assert_equal req_data['actions'][0], {
+    assert_posted("/events") do
+      assert_action_for @comment, {
         timestamp: @time.iso8601(3),
         type: 'update',
         subject_type: "Comment",

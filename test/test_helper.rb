@@ -41,7 +41,18 @@ class ActiveSupport::TestCase
   end
   
   def assert_posted(path, &block)
-    assert_requested(:post, "#{ActiveHistory.url}#{path}", times: 1, &block)
+    assert_requested(:post, "#{ActiveHistory.url}#{path}", times: 1) do |req|
+      @req = JSON.parse(req.body)
+      block.call
+    end
+  end
+  
+  def assert_action_for(model, expected)
+    action = @req['actions'].find do |action|
+      action['subject_type'] == model.class.base_class.model_name.name && action['subject_id'] == model.id
+    end
+    
+    assert_equal(expected.as_json, action)
   end
   
   def assert_not_posted(path)
