@@ -116,6 +116,10 @@ module ActiveHistory::Adapter
       if !Thread.current[:activehistory_save_lock]
         run_save = true
         Thread.current[:activehistory_save_lock] = true
+        if !Thread.current[:activehistory_event]
+          destroy_current_event = true
+          Thread.current[:activehistory_event] = ActiveHistory::Event.new(timestamp: @activehistory_timestamp)
+        end
       end
 
       status = nil
@@ -141,6 +145,8 @@ module ActiveHistory::Adapter
       @activehistory_timestamp = nil
       if run_save
         Thread.current[:activehistory_save_lock] = false
+      end
+      if destroy_current_event
         Thread.current[:activehistory_event] = nil
       end
 
@@ -413,6 +419,10 @@ module ActiveRecord
         if !Thread.current[:activehistory_save_lock]
           run_save = true
           Thread.current[:activehistory_save_lock] = true
+          if !Thread.current[:activehistory_event]
+            destroy_current_event = true
+            Thread.current[:activehistory_event] = ActiveHistory::Event.new(timestamp: @activehistory_timestamp)
+          end
         end
       
         result = yield
@@ -426,8 +436,11 @@ module ActiveRecord
         @activehistory_timestamp = nil
         if run_save
           Thread.current[:activehistory_save_lock] = false
+        end
+        if destroy_current_event
           Thread.current[:activehistory_event] = nil
         end
+        
       end
       
     end

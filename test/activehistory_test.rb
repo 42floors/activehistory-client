@@ -17,33 +17,40 @@ class ActiveHistoryTest < ActiveSupport::TestCase
       @property.name = 'Empire State Building'
       travel_to(@time) { @property.save }
 
+      eid = nil
+      assert_posted("/events") do
+        eid = @req['id']
+        assert_action_for @property, {
+          timestamp: @time.iso8601(3),
+          type: 'update',
+          subject_type: "Property",
+          subject_id: @property.id,
+          diff: {
+            name: ['unkown', 'Empire State Building']
+          }
+        }.as_json
+      end
+
+      WebMock::RequestRegistry.instance.reset!
       @property.name = "Crysler Building"
       travel_to(@time + 1) { @property.save }
+      
+      assert_posted("/actions") do
+        assert_action_for @property, {
+          event_id: eid,
+          timestamp: (@time + 1).iso8601(3),
+          type: 'update',
+          subject_type: "Property",
+          subject_id: @property.id,
+          diff: {
+            name: ['Empire State Building', 'Crysler Building']
+          }
+        }.as_json
+      end
+      
     end
 
-    assert_posted("/events") do
-      assert_action_for @property, {
-        timestamp: @time.iso8601(3),
-        type: 'update',
-        subject_type: "Property",
-        subject_id: @property.id,
-        diff: {
-          name: ['unkown', 'Empire State Building']
-        }
-      }.as_json
-    end
 
-    assert_posted("/events") do
-      assert_action_for @property, {
-        timestamp: @time.iso8601(3),
-        type: 'update',
-        subject_type: "Property",
-        subject_id: @property.id,
-        diff: {
-          name: ['Empire State Building', 'Crysler Building']
-        }
-      }.as_json
-    end
     
   end
   

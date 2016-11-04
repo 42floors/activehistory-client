@@ -24,13 +24,22 @@ class EventTest < ActiveSupport::TestCase
       create(:property)
     end
     
+    eid = nil
     assert_requested(:post, "http://activehistory.com/events", times: 1) do |req|
       req_data = JSON.parse(req.body)
       data.each do |k, v|
         assert_equal v.is_a?(Time) ? v.utc.iso8601(3) : v.as_json, req_data[k.to_s]
       end
       
-      assert_equal 2, req_data['actions'].size
+      eid = req_data['id']
+      assert_equal 1, req_data['actions'].size
+    end
+    
+    assert_requested(:post, "http://activehistory.com/actions", times: 1) do |req|
+      req_data = JSON.parse(req.body)
+      
+      assert_equal 1, req_data['actions'].size
+      assert_equal eid, req_data['actions'].first['event_id']
     end
   end
   
@@ -58,7 +67,7 @@ class EventTest < ActiveSupport::TestCase
   
   test 'Appending actions to an existing event' do
     property = nil
-    ActiveHistory.encapsulate("ddb666bd-73c8-4952-ab07-3a45e88f701b") {
+    ActiveHistory.encapsulate(id: "ddb666bd-73c8-4952-ab07-3a45e88f701b") {
       property = create(:property)
     }
 

@@ -1,3 +1,5 @@
+require 'securerandom'
+
 class ActiveHistory::Event
   
   attr_accessor :id, :ip, :user_agent, :session_id, :metadata, :timestamp, :performed_by_id, :performed_by_type, :actions
@@ -7,8 +9,19 @@ class ActiveHistory::Event
       self.send("#{k}=", v)
     end
 
-    @actions = []
+    if id
+      @persisted = true
+    else
+      @persisted = false
+      @id ||= SecureRandom.uuid
+    end
+
+    @actions ||= []
     @timestamp ||= Time.now
+  end
+  
+  def persisted?
+    @persisted
   end
 
   def action!(action)
@@ -27,26 +40,32 @@ class ActiveHistory::Event
       action
     end
   end
-  
-  def save!
-    if id
-      ActiveHistory.connection.post('/actions', {
-        actions: actions.as_json.map{|json| json[:event_id] = id; json}
-      })
-    else
-      response = ActiveHistory.connection.post('/events', self.as_json)
-      self.id = JSON.parse(response.body)['id'] if response.body
-    end
-    
-    self
-  end
 
   def self.create!(attrs={})
     self.new(attrs).save!
   end
+    
+  def save!
+    persisted? ? _update : _create
+  end
+  
+  def _update
+    return if actions.empty?
+    ActiveHistory.connection.post('/actions', {
+      actions: actions.as_json.map{|json| json[:event_id] = id; json}
+    })
+    @actions = []
+  end
+  
+  def _create
+    ActiveHistory.connection.post('/events', self.as_json)
+    @actions = []
+    @persisted = true
+  end
 
   def as_json
     {
+      id:                   id,
       ip:                   ip,
       user_agent:           user_agent,
       session_id:           session_id,
