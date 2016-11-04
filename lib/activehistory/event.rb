@@ -42,7 +42,9 @@ class ActiveHistory::Event
   end
 
   def self.create!(attrs={})
-    self.new(attrs).save!
+    event = self.new(attrs)
+    event.save!
+    event
   end
     
   def save!

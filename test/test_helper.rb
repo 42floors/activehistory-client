@@ -43,7 +43,7 @@ class ActiveSupport::TestCase
   def assert_posted(path, &block)
     assert_requested(:post, "#{ActiveHistory.url}#{path}", times: 1) do |req|
       @req = JSON.parse(req.body)
-      block.call
+      block.call @req
     end
   end
   

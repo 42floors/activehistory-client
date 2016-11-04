@@ -16,12 +16,20 @@ module ActiveHistory
     @@connection.url
   end
 
-  def self.encapsulate(attributes={}, &block)
-    Thread.current[:activehistory_event] = ActiveHistory::Event.new(attributes)
+  def self.encapsulate(attributes_or_event={}, &block)
+    if attributes_or_event.is_a?(ActiveHistory::Event)
+      event = attributes_or_event
+    else
+      event = ActiveHistory::Event.new(attributes_or_event)
+    end
+
+    Thread.current[:activehistory_event] = event
     
     yield
   ensure
-    Thread.current[:activehistory_event].save! if !Thread.current[:activehistory_event].actions.empty?
+    if !Thread.current[:activehistory_event].actions.empty?
+      Thread.current[:activehistory_event].save!
+    end
     Thread.current[:activehistory_event] = nil
   end
   
