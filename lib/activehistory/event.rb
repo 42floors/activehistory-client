@@ -10,7 +10,7 @@ class ActiveHistory::Event
     @actions = []
     @timestamp ||= Time.now
   end
-  
+
   def action!(action)
     action = ActiveHistory::Action.new(action)
     @actions << action
@@ -29,8 +29,6 @@ class ActiveHistory::Event
   end
   
   def save!
-    return if @actions.empty?
-    
     if id
       ActiveHistory.connection.post('/actions', {
         actions: actions.as_json.map{|json| json[:event_id] = id; json}
@@ -42,7 +40,11 @@ class ActiveHistory::Event
     
     self
   end
-  
+
+  def self.create!(attrs={})
+    self.new(attrs).save!
+  end
+
   def as_json
     {
       ip:                   ip,

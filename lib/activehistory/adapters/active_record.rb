@@ -129,7 +129,9 @@ module ActiveHistory::Adapter
         end
 
         if status
-          activehistory_event&.save! if run_save && ActiveHistory.configured?
+          if run_save && ActiveHistory.configured? && !activehistory_event.actions.empty?
+            activehistory_event&.save!
+          end
         else
           raise ::ActiveRecord::Rollback
         end
@@ -415,7 +417,10 @@ module ActiveRecord
       
         result = yield
 
-        owner.activehistory_event&.save! if run_save && ActiveHistory.configured?
+        if run_save && ActiveHistory.configured?  && !owner.activehistory_event.actions.empty?
+          owner.activehistory_event&.save!
+        end
+
         result
       ensure
         @activehistory_timestamp = nil

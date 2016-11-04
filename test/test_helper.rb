@@ -48,11 +48,11 @@ class ActiveSupport::TestCase
   end
   
   def assert_action_for(model, expected)
-    action = @req['actions'].find do |action|
+    actions = @req['actions'].select do |action|
       action['subject_type'] == model.class.base_class.model_name.name && action['subject_id'] == model.id
     end
-    
-    assert_equal(expected.as_json, action)
+
+    assert actions.find { |x| x == expected.as_json }
   end
   
   def assert_not_posted(path)
