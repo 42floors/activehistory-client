@@ -1,5 +1,13 @@
+require 'globalid'
+require 'securerandom'
+
+GlobalID::Locator.use :activehistory do |gid|
+  ActiveHistory::Event.new({ id: gid.model_id })
+end
+
 class ActiveHistory::Event
-  
+  include GlobalID::Identification
+
   attr_accessor :id, :ip, :user_agent, :session_id, :metadata, :timestamp, :performed_by_id, :performed_by_type, :actions
   
   def initialize(attrs={})
@@ -7,10 +15,21 @@ class ActiveHistory::Event
       self.send("#{k}=", v)
     end
 
-    @actions = []
+    if id
+      @persisted = true
+    else
+      @persisted = false
+      @id ||= SecureRandom.uuid
+    end
+
+    @actions ||= []
     @timestamp ||= Time.now
   end
   
+  def persisted?
+    @persisted
+  end
+
   def action!(action)
     action = ActiveHistory::Action.new(action)
     @actions << action
@@ -27,24 +46,34 @@ class ActiveHistory::Event
       action
     end
   end
-  
+
+  def self.create!(attrs={})
+    event = self.new(attrs)
+    event.save!
+    event
+  end
+    
   def save!
-    return if @actions.empty?
-    
-    if id
-      ActiveHistory.connection.post('/actions', {
-        actions: actions.as_json.map{|json| json[:event_id] = id; json}
-      })
-    else
-      response = ActiveHistory.connection.post('/events', self.as_json)
-      self.id = JSON.parse(response.body)['id'] if response.body
-    end
-    
-    self
+    persisted? ? _update : _create
   end
   
+  def _update
+    return if actions.empty?
+    ActiveHistory.connection.post('/actions', {
+      actions: actions.as_json.map{|json| json[:event_id] = id; json}
+    })
+    @actions = []
+  end
+  
+  def _create
+    ActiveHistory.connection.post('/events', self.as_json)
+    @actions = []
+    @persisted = true
+  end
+
   def as_json
     {
+      id:                   id,
       ip:                   ip,
       user_agent:           user_agent,
       session_id:           session_id,
@@ -55,5 +84,21 @@ class ActiveHistory::Event
       actions:              actions.as_json
     }
   end
+
+  def to_gid_param(options={})
+    to_global_id(options).to_param
+  end
+
+  def to_global_id(options={})
+    @global_id ||= GlobalID.create(self, { app: :activehistory }.merge(options))
+  end
   
+  def to_sgid_param(options={})
+    to_signed_global_id(options).to_param
+  end
+  
+  def to_signed_global_id(options={})
+     SignedGlobalID.create(self, { app: :activehistory }.merge(options))
+  end
+
 end

@@ -43,7 +43,7 @@ class ActiveSupport::TestCase
   def assert_posted(path, &block)
     assert_requested(:post, "#{ActiveHistory.url}#{path}", times: 1) do |req|
       @req = JSON.parse(req.body)
-      block.call
+      block.call @req
     end
   end
   
@@ -51,7 +51,7 @@ class ActiveSupport::TestCase
     action = @req['actions'].find do |action|
       action['subject_type'] == model.class.base_class.model_name.name && action['subject_id'] == model.id
     end
-    
+
     assert_equal(expected.as_json, action)
   end
   

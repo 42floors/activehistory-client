@@ -16,38 +16,25 @@ module ActiveHistory
     @@connection.url
   end
 
-  def self.encapsulate(id_or_options={})
-    Thread.current[:activehistory_save_lock] = true
-    Thread.current[:activehistory_event] = id_or_options
+  def self.encapsulate(attributes_or_event={}, &block)
+    if attributes_or_event.is_a?(ActiveHistory::Event)
+      event = attributes_or_event
+    else
+      event = ActiveHistory::Event.new(attributes_or_event)
+    end
+
+    Thread.current[:activehistory_event] = event
     
     yield
-    
-    if configured? && Thread.current[:activehistory_event].is_a?(ActiveHistory::Event)
+  ensure
+    if Thread.current[:activehistory_event] && !Thread.current[:activehistory_event].actions.empty?
       Thread.current[:activehistory_event].save!
     end
-  ensure
-    Thread.current[:activehistory_save_lock] = false
     Thread.current[:activehistory_event] = nil
   end
   
   def self.current_event(timestamp: nil)
-    timestamp ||= Time.now
-    
-    case Thread.current[:activehistory_event]
-    when ActiveHistory::Event
-      Thread.current[:activehistory_event]
-    when Hash
-      Thread.current[:activehistory_event][:timestamp] ||= timestamp
-      Thread.current[:activehistory_event] = ActiveHistory::Event.new(Thread.current[:activehistory_event])
-    when String
-      Thread.current[:activehistory_event] = if Thread.current[:activehistory_event] =~ UUIDV4
-        ActiveHistory::Event.new(id: Thread.current[:activehistory_event])
-      else
-        ActiveHistory::Event.new(timestamp: timestamp)
-      end
-    else
-      Thread.current[:activehistory_event] = ActiveHistory::Event.new(timestamp: timestamp)
-    end
+    Thread.current[:activehistory_event]
   end
   
 end
