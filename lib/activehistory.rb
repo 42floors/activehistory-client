@@ -17,7 +17,6 @@ module ActiveHistory
   end
 
   def self.encapsulate(attributes_or_event={}, &block)
-puts    attributes_or_event.inspect, '(((((((((((((((((((((())))))))))))))))))))))'
     if attributes_or_event.is_a?(ActiveHistory::Event)
       event = attributes_or_event
     else
