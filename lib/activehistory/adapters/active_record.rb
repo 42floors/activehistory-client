@@ -59,28 +59,6 @@ module ActiveHistory::Adapter
           action.diff[diff_key] ||= [removed.first, added.first]
         end
 
-        reflect_on_all_associations.each do |middle_reflection|
-          next if middle_reflection == reflection
-          middle_reflection.klass.reflect_on_all_associations.each do |through_reflection|
-            # puts [reflection, middle_reflection, through_reflection].map(&:name).inspect
-            next unless through_reflection.is_a?(::ActiveRecord::Reflection::ThroughReflection) && through_reflection.scope.nil?
-            next unless through_reflection.source_reflection_name == reflection.name
-
-            middle_reflection.klass.joins(through_reflection.through_reflection.name).where(through_reflection.through_reflection.klass.arel_table[:id].eq(id)).pluck(:id).each do |tid|
-              action = ActiveHistory.current_event(timestamp: timestamp).action_for(middle_reflection.klass, tid, { timestamp: timestamp })
-
-              if through_reflection.collection?
-                diff_key = "#{through_reflection.name.to_s.singularize}_ids"
-                action.diff[diff_key] ||= [[], []]
-                action.diff[diff_key][0] |= removed
-                action.diff[diff_key][1] |= added
-              else
-                diff_key = "#{through_reflection.name.to_s.singularize}_id"
-                action.diff[diff_key] ||= [removed.first, added.first]
-              end
-            end
-          end
-        end
       
         if propagate && inverse_reflection = reflection.inverse_of
           inverse_klass = inverse_reflection.active_record

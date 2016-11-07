@@ -1,7 +1,13 @@
+require 'globalid'
 require 'securerandom'
 
+GlobalID::Locator.use :activehistory do |gid|
+  ActiveHistory::Event.new({ id: gid.model_id })
+end
+
 class ActiveHistory::Event
-  
+  include GlobalID::Identification
+
   attr_accessor :id, :ip, :user_agent, :session_id, :metadata, :timestamp, :performed_by_id, :performed_by_type, :actions
   
   def initialize(attrs={})
@@ -78,5 +84,21 @@ class ActiveHistory::Event
       actions:              actions.as_json
     }
   end
+
+  def to_gid_param(options={})
+    to_global_id(options).to_param
+  end
+
+  def to_global_id(options={})
+    @global_id ||= GlobalID.create(self, { app: :activehistory }.merge(options))
+  end
   
+  def to_sgid_param(options={})
+    to_signed_global_id(options).to_param
+  end
+  
+  def to_signed_global_id(options={})
+     SignedGlobalID.create(self, { app: :activehistory }.merge(options))
+  end
+
 end
