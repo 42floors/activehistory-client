@@ -27,7 +27,7 @@ module ActiveHistory
     
     yield
   ensure
-    if Thread.current[:activehistory_event] && !Thread.current[:activehistory_event].actions.empty?
+    if configured? && Thread.current[:activehistory_event] && !Thread.current[:activehistory_event].actions.empty?
       Thread.current[:activehistory_event].save!
     end
     Thread.current[:activehistory_event] = nil
