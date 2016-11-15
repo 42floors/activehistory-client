@@ -45,7 +45,6 @@ module ActiveHistory::Adapter
         else
           reflection_or_relation_name
         end
-        puts "#{self}##{id}.#{reflection.name} +#{added.inspect} -#{removed.inspect}"
         
         action = ActiveHistory.current_event(timestamp: timestamp).action_for(self, id, { type: type, timestamp: timestamp })
       
