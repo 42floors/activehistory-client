@@ -59,14 +59,16 @@ class ActiveHistory::Event
   
   def _update
     return if actions.empty?
-    ActiveHistory.connection.post('/actions', {
-      actions: actions.as_json.map{|json| json[:event_id] = id; json}
-    })
+    payload = JSON.generate({actions: actions.as_json.map{ |json| json[:event_id] = id; json }})
+    ActiveHistory.logger.info("[ActiveHisotry] POST /actions WITH #{payload}")
+    ActiveHistory.connection.post('/actions', payload)
     @actions = []
   end
   
   def _create
-    ActiveHistory.connection.post('/events', self.as_json)
+    payload = JSON.generate(self.as_json)
+    ActiveHistory.logger.info("[ActiveHisotry] POST /events WITH #{payload}")
+    ActiveHistory.connection.post('/events', payload)
     @actions = []
     @persisted = true
   end

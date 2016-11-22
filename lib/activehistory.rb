@@ -1,10 +1,13 @@
+require 'logger'
+
 module ActiveHistory
   
-  mattr_accessor :connection
+  mattr_accessor :connection, :logger
   
   UUIDV4 = /^[0-9A-F]{8}-[0-9A-F]{4}-[4][0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i
   
   def self.configure(settings)
+    self.logger = settings&.delete(:logger) || Logger.new(STDOUT)
     @@connection = ActiveHistory::Connection.new(settings)
   end
   
