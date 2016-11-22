@@ -17,7 +17,8 @@ require 'active_record'
 require 'activehistory'
 
 ActiveHistory.configure({
-  url: 'http://activehistory.com'
+  url: 'http://activehistory.com',
+  logger: Logger.new("/dev/null")
 })
 ActiveRecord::Base.establish_connection({
   adapter: 'postgresql',
@@ -59,6 +60,14 @@ class ActiveSupport::TestCase
     end
 
     assert_equal(expected.as_json, action)
+  end
+  
+  def assert_no_action_for(model)
+    action = @req['actions'].find do |a|
+      a['subject_type'] == model.class.base_class.model_name.name && a['subject_id'] == model.id
+    end
+
+    assert_nil action
   end
   
   def assert_not_posted(path)

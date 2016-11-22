@@ -53,9 +53,18 @@ module ActiveHistory::Adapter
           action.diff[diff_key] ||= [[], []]
           action.diff[diff_key][0] |= removed
           action.diff[diff_key][1] |= added
+          in_common = (action.diff[diff_key][0] & action.diff[diff_key][1])
+          if !in_common.empty?
+            action.diff[diff_key][0] = action.diff[diff_key][0] - in_common
+            action.diff[diff_key][1] = action.diff[diff_key][1] - in_common
+          end
         else
           diff_key = "#{reflection.name.to_s.singularize}_id"
-          action.diff[diff_key] ||= [removed.first, added.first]
+          if action.diff.has_key?(diff_key) && action.diff[diff_key][0] == added.first
+            action.diff.delete(diff_key)
+          else
+            action.diff[diff_key] ||= [removed.first, added.first]
+          end
         end
 
       
@@ -219,8 +228,6 @@ module ActiveHistory::Adapter
         timestamp: timestamp,
         type: type
       })
-      
-      
     end
     
     def activehistory_association_udpated(reflection, id, added: [], removed: [], timestamp: nil, type: :update)
@@ -393,10 +400,11 @@ module ActiveRecord
       
       def activehistory_encapsulate
         @activehistory_timestamp = Time.now.utc
+
         if !Thread.current[:activehistory_save_lock]
           run_save = true
           Thread.current[:activehistory_save_lock] = true
-          if !Thread.current[:activehistory_event]
+          if Thread.current[:activehistory_event].nil?
             destroy_current_event = true
             Thread.current[:activehistory_event] = ActiveHistory::Event.new(timestamp: @activehistory_timestamp)
           end
@@ -417,7 +425,6 @@ module ActiveRecord
         if destroy_current_event
           Thread.current[:activehistory_event] = nil
         end
-        
       end
       
     end

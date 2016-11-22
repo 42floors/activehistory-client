@@ -41,7 +41,13 @@ class ActiveHistory::Event
     action = @actions.find { |a| a.subject_type.to_s == type.to_s && a.subject_id.to_s == id.to_s }
     
     if new_options
-      action || action!({ subject_type: type, subject_id: id, type: :update }.merge(new_options))
+      if action
+        action.diff.merge!(new_options[:diff]) if new_options.has_key?(:diff)
+        action
+      else
+        action!({ subject_type: type, subject_id: id, type: :update }.merge(new_options))
+      end
+
     else
       action
     end
@@ -59,15 +65,17 @@ class ActiveHistory::Event
   
   def _update
     return if actions.empty?
+    actions.delete_if { |a| a.diff.empty? }
     payload = JSON.generate({actions: actions.as_json.map{ |json| json[:event_id] = id; json }})
-    ActiveHistory.logger.info("[ActiveHisotry] POST /actions WITH #{payload}")
+    ActiveHistory.logger.debug("[ActiveHistory] POST /actions WITH #{payload}")
     ActiveHistory.connection.post('/actions', payload)
     @actions = []
   end
   
   def _create
+    actions.delete_if { |a| a.diff.empty? }
     payload = JSON.generate(self.as_json)
-    ActiveHistory.logger.info("[ActiveHisotry] POST /events WITH #{payload}")
+    ActiveHistory.logger.debug("[ActiveHistory] POST /events WITH #{payload}")
     ActiveHistory.connection.post('/events', payload)
     @actions = []
     @persisted = true
