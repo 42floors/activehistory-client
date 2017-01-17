@@ -321,7 +321,7 @@ module ActiveRecord
 
           if dependent == :delete_all
 
-          else
+          elsif !owner.id.nil?
             removed_ids = self.scope.pluck(:id)
           
             action = owner.activehistory_event.action_for(self.reflection.active_record, owner.id, {
