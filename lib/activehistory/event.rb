@@ -8,7 +8,7 @@ end
 class ActiveHistory::Event
   include GlobalID::Identification
 
-  attr_accessor :id, :ip, :user_agent, :session_id, :metadata, :timestamp, :performed_by_id, :performed_by_type, :actions
+  attr_accessor :id, :metadata, :timestamp, :actions
   
   def initialize(attrs={})
     attrs.each do |k,v|
@@ -25,7 +25,7 @@ class ActiveHistory::Event
     @actions ||= []
     @timestamp ||= Time.now
   end
-  
+
   def persisted?
     @persisted
   end
@@ -84,12 +84,7 @@ class ActiveHistory::Event
   def as_json
     {
       id:                   id,
-      ip:                   ip,
-      user_agent:           user_agent,
-      session_id:           session_id,
       metadata:             metadata,
-      performed_by_type:    performed_by_type,
-      performed_by_id:      performed_by_id,
       timestamp:            timestamp.utc.iso8601(3),
       actions:              actions.as_json
     }

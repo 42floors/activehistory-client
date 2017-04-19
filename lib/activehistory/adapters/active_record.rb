@@ -50,9 +50,12 @@ module ActiveHistory::Adapter
       
         if reflection.collection?
           diff_key = "#{reflection.name.to_s.singularize}_ids"
+          # byebug if diff_key == 'use_ids'
           action.diff[diff_key] ||= [[], []]
-          action.diff[diff_key][0] |= removed
-          action.diff[diff_key][1] |= added
+          action.diff[diff_key][0] ||= removed
+          action.diff[diff_key][1] ||= added
+          # byebug if diff_key == 'use_ids'
+          
           in_common = (action.diff[diff_key][0] & action.diff[diff_key][1])
           if !in_common.empty?
             action.diff[diff_key][0] = action.diff[diff_key][0] - in_common
