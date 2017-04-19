@@ -50,12 +50,10 @@ module ActiveHistory::Adapter
       
         if reflection.collection?
           diff_key = "#{reflection.name.to_s.singularize}_ids"
-          # byebug if diff_key == 'use_ids'
           action.diff[diff_key] ||= [[], []]
-          action.diff[diff_key][0] ||= removed
-          action.diff[diff_key][1] ||= added
-          # byebug if diff_key == 'use_ids'
-          
+          action.diff[diff_key][0] |= removed
+          action.diff[diff_key][1] |= added
+
           in_common = (action.diff[diff_key][0] & action.diff[diff_key][1])
           if !in_common.empty?
             action.diff[diff_key][0] = action.diff[diff_key][0] - in_common
@@ -167,7 +165,17 @@ module ActiveHistory::Adapter
           end
         end
       elsif type == :destroy
-        diff = self.attributes.select { |k| !activehistory_tracking[:exclude].include?(k.to_sym) }.map { |k, i| [k, [i, nil]] }.to_h
+        relations_ids = self.class.reflect_on_all_associations.map { |r| "#{r.name.to_s.singularize}_ids" }
+
+        diff = self.attributes.select do |k|
+          !activehistory_tracking[:exclude].include?(k.to_sym) 
+        end.map do |k, i|
+          if relations_ids.include?(k)
+            [ k, [ i, [] ] ]
+          else
+            [ k, [ i, nil ] ]
+          end
+        end.to_h
       end
       
       return if type == :update && (diff.keys - (self.send(:timestamp_attributes_for_update) + self.send(:timestamp_attributes_for_create)).map(&:to_s)).empty?
@@ -272,6 +280,7 @@ module ActiveHistory::Adapter
         })
       
         action.diff ||= {}
+
         if inverse_association.collection? || activehistory_tracking[:habtm_model]
           diff_key = "#{inverse_association.name.to_s.singularize}_ids"
           action.diff[diff_key] ||= [[], []]
