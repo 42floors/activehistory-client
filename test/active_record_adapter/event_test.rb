@@ -9,12 +9,14 @@ class EventTest < ActiveSupport::TestCase
 
   test 'Data captured from Event encalpsulation' do
     data = {
-      ip: '127.0.0.1',
-      user_agent:         'user-agent',
-      session_id:         'session-id',
-      performed_by_type:  'model',
-      performed_by_id:    'id',
-      metadata:           {random: 'stuff'},
+      metadata:           {
+        ip: '127.0.0.1',
+        user_agent:         'user-agent',
+        session_id:         'session-id',
+        performed_by_type:  'model',
+        performed_by_id:    'id',
+        random: 'stuff'
+      },
       timestamp:          Time.now
     }
     

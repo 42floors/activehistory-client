@@ -18,7 +18,7 @@ class ActiveHistory::Action
       type:         type,
       event_id:     event_id,
       id:           id
-    }
+    }.select { |k, v| !v.nil? }
   end
 
 end
