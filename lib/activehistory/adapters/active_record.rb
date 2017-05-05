@@ -21,7 +21,7 @@ module ActiveHistory::Adapter
         @activehistory = options
       end
       
-      def has_and_belongs_to_many(name, scope = nil, options = {}, &extension)
+      def has_and_belongs_to_many(name, scope = nil, **options, &extension)
         super
         name = name.to_s
         habtm_model = self.const_get("HABTM_#{name.to_s.camelize}")
@@ -157,6 +157,10 @@ module ActiveHistory::Adapter
       
       if type == :create || type == :update
         diff = self.changes.select { |k,v| !activehistory_tracking[:exclude].include?(k.to_sym) }
+        # diff = self.saved_changes.transform_values(&:first).select do |k, v| 
+        #   !activehistory_tracking[:exclude].include?(k.to_sym)
+        # end
+
         if type == :create
           self.class.columns.each do |column|
             if !diff[column.name] && !activehistory_tracking[:exclude].include?(column.name.to_sym) && column.default != self.attributes[column.name]
@@ -177,8 +181,15 @@ module ActiveHistory::Adapter
           end
         end.to_h
       end
-      
-      return if type == :update && (diff.keys - (self.send(:timestamp_attributes_for_update) + self.send(:timestamp_attributes_for_create)).map(&:to_s)).empty?
+
+
+      timestamps = if self.class.record_timestamps
+        diff.keys - (self.class.send(:timestamp_attributes_for_update) + self.class.send(:timestamp_attributes_for_create))
+      else
+        []
+      end
+
+      return if type == :update && timestamps.empty? # (diff.keys - (self.class.send(:timestamp_attributes_for_update) + self.class.send(:timestamp_attributes_for_create)).map(&:to_s)).empty?
       
       if activehistory_tracking[:habtm_model]
         if type == :create
