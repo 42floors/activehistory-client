@@ -7,7 +7,7 @@ Gem::Specification.new do |s|
   s.email       = ["jonbracy@gmail.com"]
   s.homepage    = "https://activehistory.com"
   s.summary     = %q{Track changes to ActiveRecord models}
-  s.description = <<-DESC
+  s.description = <<~DESC
     ActiveHistory tracks and logs changes to your ActiveRecord models and
     relationships for auditing in the future.
   DESC
