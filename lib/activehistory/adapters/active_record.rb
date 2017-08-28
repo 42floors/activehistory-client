@@ -156,10 +156,7 @@ module ActiveHistory::Adapter
       return if !activehistory_tracking
       
       if type == :create || type == :update
-        diff = self.changes.select { |k,v| !activehistory_tracking[:exclude].include?(k.to_sym) }
-        # diff = self.saved_changes.transform_values(&:first).select do |k, v| 
-        #   !activehistory_tracking[:exclude].include?(k.to_sym)
-        # end
+        diff = self.saved_changes.select { |k,v| !activehistory_tracking[:exclude].include?(k.to_sym) }
 
         if type == :create
           self.class.columns.each do |column|
@@ -182,15 +179,16 @@ module ActiveHistory::Adapter
         end.to_h
       end
 
-
-      timestamps = if self.class.record_timestamps
-        diff.keys - (self.class.send(:timestamp_attributes_for_update) + self.class.send(:timestamp_attributes_for_create))
-      else
-        []
+      if type == :update && 
+        diff_without_timestamps = if self.class.record_timestamps
+          diff.keys - (self.class.send(:timestamp_attributes_for_update) + self.class.send(:timestamp_attributes_for_create))
+        else
+          diff.keys
+        end
+        
+        return if diff_without_timestamps.empty?
       end
 
-      return if type == :update && timestamps.empty? # (diff.keys - (self.class.send(:timestamp_attributes_for_update) + self.class.send(:timestamp_attributes_for_create)).map(&:to_s)).empty?
-      
       if activehistory_tracking[:habtm_model]
         if type == :create
           self.class.reflect_on_association(:left_side).klass.activehistory_association_changed(

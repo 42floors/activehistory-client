@@ -37,7 +37,7 @@ GEM
       activesupport (>= 4.1.0)
     hashdiff (0.3.0)
     i18n (0.8.1)
-    json (1.8.3)
+    json (1.8.6)
     metaclass (0.0.4)
     minitest (5.10.1)
     minitest-reporters (1.1.11)
@@ -92,4 +92,4 @@ DEPENDENCIES
   webmock
 
 BUNDLED WITH
-   1.14.6
+   1.15.3
