@@ -1,3 +1,3 @@
 module ActiveHistory
-  VERSION = '0.2.3'
+  VERSION = '5.1.0'
 end
