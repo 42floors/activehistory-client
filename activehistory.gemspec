@@ -34,6 +34,6 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'byebug'
 
   # Runtime
-  s.add_runtime_dependency 'activerecord', '~> 5.0'
+  s.add_runtime_dependency 'activerecord', '~> 5.1'
   s.add_runtime_dependency 'globalid', '~> 0.3.7'
 end

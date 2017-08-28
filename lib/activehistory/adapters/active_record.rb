@@ -181,7 +181,7 @@ module ActiveHistory::Adapter
 
       if type == :update
         diff_without_timestamps = if self.class.record_timestamps
-          diff.keys - (self.class.send(:timestamp_attributes_for_update) + self.class.send(:timestamp_attributes_for_create))
+          diff.keys - (self.class.send(:timestamp_attributes_for_update_in_model) + self.class.send(:timestamp_attributes_for_create_in_model))
         else
           diff.keys
         end
