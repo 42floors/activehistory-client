@@ -8,6 +8,7 @@ require 'minitest/reporters'
 require 'webmock/minitest'
 require 'factory_girl'
 require 'faker'
+require 'byebug'
 
 
 WebMock.disable_net_connect!

@@ -40,9 +40,19 @@ class Region < ActiveRecord::Base
   track
   
   has_and_belongs_to_many :properties, inverse_of: :regions
-  has_and_belongs_to_many :parents, :join_table => 'regions_regions', :class_name => 'Region', :foreign_key => 'child_id', :association_foreign_key => 'parent_id'
-  has_and_belongs_to_many :children, :join_table => 'regions_regions', :class_name => 'Region', :foreign_key => 'parent_id', :association_foreign_key => 'child_id'
-  
+
+  has_and_belongs_to_many :parents,
+    class_name: 'Region',
+    join_table: 'regions_regions',
+    foreign_key: 'child_id',
+    association_foreign_key: 'parent_id'
+
+  has_and_belongs_to_many :children,
+    class_name: 'Region',
+    join_table: 'regions_regions',
+    foreign_key: 'parent_id',
+    association_foreign_key: 'child_id'
+
 end
 
 class Comment < ActiveRecord::Base
@@ -56,5 +66,3 @@ end
 class UnobservedModel < ActiveRecord::Base
   
 end
-
-# ActiveRecord::Base.logger = Logger.new(STDOUT)
