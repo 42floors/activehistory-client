@@ -26,11 +26,11 @@ module ActiveHistory::Adapter
         name = name.to_s
         habtm_model = self.const_get("HABTM_#{name.to_s.camelize}")
         
+        association_foreign_key = options[:association_foreign_key] || "#{base_class.name.underscore}_id"
         habtm_model.track habtm_model: {
-          :left_side => { foreign_key: "#{base_class.name.underscore}_id", inverse_of: name.to_s },
+          :left_side => { foreign_key: association_foreign_key, inverse_of: name.to_s },
           name.to_s.singularize.to_sym => { inverse_of: self.name.underscore.pluralize.to_s }
         }
-        
 
         callback = ->(method, owner, record) {
           owner.activehistory_association_changed(name, removed: [record.id])

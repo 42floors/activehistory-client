@@ -32,7 +32,7 @@ class Property < ActiveRecord::Base
   has_many :photos, inverse_of: :property
 
   has_and_belongs_to_many :regions, inverse_of: :properties
-  
+
 end
 
 class Region < ActiveRecord::Base
@@ -45,13 +45,15 @@ class Region < ActiveRecord::Base
     class_name: 'Region',
     join_table: 'regions_regions',
     foreign_key: 'child_id',
-    association_foreign_key: 'parent_id'
+    association_foreign_key: 'parent_id',
+    inverse_of: :children
 
   has_and_belongs_to_many :children,
     class_name: 'Region',
     join_table: 'regions_regions',
     foreign_key: 'parent_id',
-    association_foreign_key: 'child_id'
+    association_foreign_key: 'child_id',
+    inverse_of: :parents
 
 end
 

@@ -250,7 +250,37 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
   test 'has_and_belongs_to_many.delete'
   test 'has_and_belongs_to_many.destroy'
   test 'has_and_belongs_to_many='
-  test 'has_and_belongs_to_many_ids='
+
+  test 'has_and_belongs_to_many_ids=' do
+    @parent = create(:region)
+    @child = create(:region)
+    WebMock::RequestRegistry.instance.reset!
+    
+    travel_to(@time) { @child.parent_ids = [@parent.id] }
+
+    assert_posted("/events") do
+      assert_action_for @child, {
+        diff: {
+          parent_ids: [[], [@parent.id]]
+        },
+        subject_type: "Region",
+        subject_id: @child.id,
+        timestamp: @time.iso8601(3),
+        type: 'update'
+      }.as_json
+
+      assert_action_for @parent, {
+        timestamp: @time.iso8601(3),
+        type: 'update',
+        subject_type: "Region",
+        subject_id: @parent.id,
+        diff: {
+          child_ids: [[], [@child.id]]
+        }
+      }.as_json
+    end
+  end
+  
   test 'has_and_belongs_to_many.clear'
   test 'has_and_belongs_to_many.create'
   
