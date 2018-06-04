@@ -27,9 +27,11 @@ module ActiveHistory::Adapter
         habtm_model = self.const_get("HABTM_#{name.to_s.camelize}")
         
         association_foreign_key = options[:association_foreign_key] || "#{base_class.name.underscore}_id"
+        inverse_of = (options[:inverse_of] || self.name.underscore.pluralize).to_s
+
         habtm_model.track habtm_model: {
           :left_side => { foreign_key: association_foreign_key, inverse_of: name.to_s },
-          name.to_s.singularize.to_sym => { inverse_of: self.name.underscore.pluralize.to_s }
+          name.to_s.singularize.to_sym => { inverse_of: inverse_of }
         }
 
         callback = ->(method, owner, record) {
@@ -50,6 +52,7 @@ module ActiveHistory::Adapter
       
         if reflection.collection?
           diff_key = "#{reflection.name.to_s.singularize}_ids"
+
           action.diff[diff_key] ||= [[], []]
           action.diff[diff_key][0] |= removed
           action.diff[diff_key][1] |= added
@@ -71,7 +74,7 @@ module ActiveHistory::Adapter
       
         if propagate && inverse_reflection = reflection.inverse_of
           inverse_klass = inverse_reflection.active_record
-          
+
           added.each do |added_id|
             inverse_klass.activehistory_association_changed(added_id, inverse_reflection, {
               added: [id],
@@ -191,11 +194,17 @@ module ActiveHistory::Adapter
 
       if activehistory_tracking[:habtm_model]
         if type == :create
+          inverse_name = activehistory_tracking[:habtm_model][
+            activehistory_tracking[:habtm_model][:left_side][:inverse_of].singularize.to_sym
+          ][:inverse_of]#.singularize + "_id"
+          
+
           self.class.reflect_on_association(:left_side).klass.activehistory_association_changed(
             self.send(activehistory_tracking[:habtm_model][:left_side][:foreign_key]),
-            activehistory_tracking[:habtm_model][:left_side][:inverse_of],
+            inverse_name,
             added: [self.send((self.class.column_names - [activehistory_tracking[:habtm_model][:left_side][:foreign_key]]).first)],
-            timestamp: activehistory_timestamp
+            timestamp: activehistory_timestamp,
+            propagate: false
           )
         end
       else
@@ -260,7 +269,7 @@ module ActiveHistory::Adapter
       else
         reflection.inverse_of
       end
-      
+
       if inverse_association.nil?
         puts "NO INVERSE for #{self.class}.#{reflection.name}!!!"
         return
