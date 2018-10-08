@@ -26,12 +26,16 @@ module ActiveHistory::Adapter
         name = name.to_s
         habtm_model = self.const_get("HABTM_#{name.to_s.camelize}")
         
-        association_foreign_key = options[:association_foreign_key] || "#{base_class.name.underscore}_id"
+        foreign_key = options[:foreign_key] || "#{base_class.name.underscore}_id"
+        association_foreign_key = options[:association_foreign_key] || "#{name.singularize.underscore}_id"
         inverse_of = (options[:inverse_of] || self.name.underscore.pluralize).to_s
 
         habtm_model.track habtm_model: {
-          :left_side => { foreign_key: association_foreign_key, inverse_of: name.to_s },
-          name.to_s.singularize.to_sym => { inverse_of: inverse_of }
+          :left_side => { foreign_key: foreign_key, inverse_of: name.to_s },
+          name.to_s.singularize.to_sym => {
+            foreign_key: association_foreign_key,
+            inverse_of: inverse_of
+          }
         }
 
         callback = ->(method, owner, record) {
@@ -49,7 +53,7 @@ module ActiveHistory::Adapter
         end
         
         action = ActiveHistory.current_event(timestamp: timestamp).action_for(self, id, { type: type, timestamp: timestamp })
-      
+
         if reflection.collection?
           diff_key = "#{reflection.name.to_s.singularize}_ids"
 
@@ -157,7 +161,7 @@ module ActiveHistory::Adapter
     
     def activehistory_track(type)
       return if !activehistory_tracking
-      
+
       if type == :create || type == :update
         diff = self.saved_changes.select { |k,v| !activehistory_tracking[:exclude].include?(k.to_sym) }
 
@@ -194,15 +198,26 @@ module ActiveHistory::Adapter
 
       if activehistory_tracking[:habtm_model]
         if type == :create
-          inverse_name = activehistory_tracking[:habtm_model][
-            activehistory_tracking[:habtm_model][:left_side][:inverse_of].singularize.to_sym
-          ][:inverse_of]#.singularize + "_id"
-          
+          left_side = self.class.reflect_on_association(:left_side)
+          left_side_id_name = activehistory_tracking[:habtm_model][:left_side][:foreign_key]
+          left_side_id = self.send(left_side_id_name)
+          right_side_name = activehistory_tracking[:habtm_model].keys.find { |x| x != :left_side }
+          right_side = self.class.reflect_on_association(right_side_name)
+          right_side_id_name = activehistory_tracking[:habtm_model][right_side_name][:foreign_key]
+          right_side_id = self.send(right_side_id_name)
 
-          self.class.reflect_on_association(:left_side).klass.activehistory_association_changed(
-            self.send(activehistory_tracking[:habtm_model][:left_side][:foreign_key]),
-            inverse_name,
-            added: [self.send((self.class.column_names - [activehistory_tracking[:habtm_model][:left_side][:foreign_key]]).first)],
+          left_side.klass.activehistory_association_changed(
+            left_side_id,
+            activehistory_tracking[:habtm_model][:left_side][:inverse_of],
+            added: [right_side_id],
+            timestamp: activehistory_timestamp,
+            propagate: false
+          )
+
+          right_side.klass.activehistory_association_changed(
+            right_side_id,
+            activehistory_tracking[:habtm_model][right_side_name][:inverse_of],
+            added: [left_side_id],
             timestamp: activehistory_timestamp,
             propagate: false
           )
