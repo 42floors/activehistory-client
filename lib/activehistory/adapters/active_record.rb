@@ -431,11 +431,12 @@ module ActiveRecord
       
       def delete_or_destroy(records, method)
         activehistory_encapsulate do
+          records = find(records) if records.any? { |record| record.kind_of?(Integer) || record.kind_of?(String) }
           records = records.flatten
           records.each { |record| raise_on_type_mismatch!(record) }
           existing_records = records.reject(&:new_record?)
 
-          result = if existing_records.empty?
+          if existing_records.empty?
             remove_records(existing_records, records, method)
           else
             transaction { remove_records(existing_records, records, method) }
