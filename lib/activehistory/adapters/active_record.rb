@@ -25,11 +25,13 @@ module ActiveHistory::Adapter
         super
         name = name.to_s
         habtm_model = self.const_get("HABTM_#{name.to_s.camelize}")
-        
-        foreign_key = options[:foreign_key] || "#{base_class.name.underscore}_id"
-        association_foreign_key = options[:association_foreign_key] || "#{name.singularize.underscore}_id"
-        inverse_of = (options[:inverse_of] || self.name.underscore.pluralize).to_s
 
+        foreign_key = options[:foreign_key] || "#{base_class.name.underscore}_id"
+        association_foreign_key = options[:association_foreign_key]
+        association_foreign_key ||= "#{options[:class_name].underscore}_id" if options[:class_name]
+        association_foreign_key ||= "#{name.singularize.underscore}_id"
+        inverse_of = (options[:inverse_of] || self.name.underscore.pluralize).to_s
+        
         habtm_model.track habtm_model: {
           :left_side => { foreign_key: foreign_key, inverse_of: name.to_s },
           name.to_s.singularize.to_sym => {

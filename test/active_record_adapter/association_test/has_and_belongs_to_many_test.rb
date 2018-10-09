@@ -250,6 +250,38 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
   test 'has_and_belongs_to_many.delete'
   test 'has_and_belongs_to_many.destroy'
   test 'has_and_belongs_to_many='
+  
+  test 'has_and_belongs_to_many with different class name' do
+    @photo = create(:photo)
+    @property = create(:property)
+    WebMock::RequestRegistry.instance.reset!
+
+    travel_to(@time) { @property.update(attachments: [@photo]) }
+    
+    assert_posted("/events") do
+      assert_action_for @property, {
+        diff: {
+          attachment_ids: [[], [@photo.id]]
+        },
+        subject_type: "Property",
+        subject_id: @property.id,
+        timestamp: @time.iso8601(3),
+        type: 'update'
+      }
+
+      assert_action_for @photo, {
+        timestamp: @time.iso8601(3),
+        type: 'update',
+        subject_type: "Photo",
+        subject_id: @photo.id,
+        diff: {
+          property_ids: [[], [@property.id]]
+        }
+      }
+    end
+
+  end
+
 
   test 'has_and_belongs_to_many_ids=' do
     @parent = create(:region)
