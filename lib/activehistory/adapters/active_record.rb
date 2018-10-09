@@ -56,47 +56,48 @@ module ActiveHistory::Adapter
         
         action = ActiveHistory.current_event(timestamp: timestamp).action_for(self, id, { type: type, timestamp: timestamp })
 
-        if reflection.collection?
-          diff_key = "#{reflection.name.to_s.singularize}_ids"
+        if reflection
+          if reflection.collection?
+            diff_key = "#{reflection.name.to_s.singularize}_ids"
 
-          action.diff[diff_key] ||= [[], []]
-          action.diff[diff_key][0] |= removed
-          action.diff[diff_key][1] |= added
+            action.diff[diff_key] ||= [[], []]
+            action.diff[diff_key][0] |= removed
+            action.diff[diff_key][1] |= added
 
-          in_common = (action.diff[diff_key][0] & action.diff[diff_key][1])
-          if !in_common.empty?
-            action.diff[diff_key][0] = action.diff[diff_key][0] - in_common
-            action.diff[diff_key][1] = action.diff[diff_key][1] - in_common
-          end
-        else
-          diff_key = "#{reflection.name.to_s.singularize}_id"
-          if action.diff.has_key?(diff_key) && action.diff[diff_key][0] == added.first
-            action.diff.delete(diff_key)
+            in_common = (action.diff[diff_key][0] & action.diff[diff_key][1])
+            if !in_common.empty?
+              action.diff[diff_key][0] = action.diff[diff_key][0] - in_common
+              action.diff[diff_key][1] = action.diff[diff_key][1] - in_common
+            end
           else
-            action.diff[diff_key] ||= [removed.first, added.first]
+            diff_key = "#{reflection.name.to_s.singularize}_id"
+            if action.diff.has_key?(diff_key) && action.diff[diff_key][0] == added.first
+              action.diff.delete(diff_key)
+            else
+              action.diff[diff_key] ||= [removed.first, added.first]
+            end
           end
-        end
-
       
-        if propagate && inverse_reflection = reflection.inverse_of
-          inverse_klass = inverse_reflection.active_record
+          if propagate && inverse_reflection = reflection.inverse_of
+            inverse_klass = inverse_reflection.active_record
 
-          added.each do |added_id|
-            inverse_klass.activehistory_association_changed(added_id, inverse_reflection, {
-              added: [id],
-              timestamp: timestamp,
-              type: type,
-              propagate: false
-            })
-          end
+            added.each do |added_id|
+              inverse_klass.activehistory_association_changed(added_id, inverse_reflection, {
+                added: [id],
+                timestamp: timestamp,
+                type: type,
+                propagate: false
+              })
+            end
         
-          removed.each do |removed_id|
-            inverse_klass.activehistory_association_changed(removed_id, inverse_reflection, {
-              removed: [id],
-              timestamp: timestamp,
-              type: type,
-              propagate: false
-            })
+            removed.each do |removed_id|
+              inverse_klass.activehistory_association_changed(removed_id, inverse_reflection, {
+                removed: [id],
+                timestamp: timestamp,
+                type: type,
+                propagate: false
+              })
+            end
           end
         end
       end

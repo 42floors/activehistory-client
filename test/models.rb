@@ -23,7 +23,6 @@ class Photo < ActiveRecord::Base
   belongs_to :account, counter_cache: true, inverse_of: :photos
   belongs_to :property, inverse_of: :photos
 
-  has_and_belongs_to_many :properties, inverse_of: :attachments
 end
 
 class Property < ActiveRecord::Base
@@ -33,7 +32,7 @@ class Property < ActiveRecord::Base
   has_many :photos, inverse_of: :property
 
   has_and_belongs_to_many :regions, inverse_of: :properties
-  has_and_belongs_to_many :attachments, class_name: 'Photo', inverse_of: :properties
+  has_and_belongs_to_many :attachments, class_name: 'Photo'
 end
 
 class Region < ActiveRecord::Base

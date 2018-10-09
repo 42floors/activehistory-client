@@ -268,16 +268,6 @@ class HasAndBelongsToManyAssociationTest < ActiveSupport::TestCase
         timestamp: @time.iso8601(3),
         type: 'update'
       }
-
-      assert_action_for @photo, {
-        timestamp: @time.iso8601(3),
-        type: 'update',
-        subject_type: "Photo",
-        subject_id: @photo.id,
-        diff: {
-          property_ids: [[], [@property.id]]
-        }
-      }
     end
 
   end
