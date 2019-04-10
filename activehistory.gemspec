@@ -35,5 +35,5 @@ Gem::Specification.new do |s|
 
   # Runtime
   s.add_runtime_dependency 'activerecord', '~> 5.2'
-  s.add_runtime_dependency 'globalid', '~> 0.3.7'
+  s.add_runtime_dependency 'globalid', '~> 0.4.2'
 end
