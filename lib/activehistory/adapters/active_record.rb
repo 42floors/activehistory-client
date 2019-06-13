@@ -1,7 +1,7 @@
 module ActiveHistory::Adapter
   module ActiveRecord
     extend ActiveSupport::Concern
-    
+
     class_methods do
     
       def self.extended(other)
@@ -103,7 +103,7 @@ module ActiveHistory::Adapter
       end
       
     end
-    
+
     def activehistory_timestamp
       @activehistory_timestamp ||= Time.now.utc
     end
@@ -121,14 +121,13 @@ module ActiveHistory::Adapter
 
       status = nil
       self.class.transaction do
-        add_to_transaction
-        begin
-          status = yield
-        rescue ::ActiveRecord::Rollback
-          clear_transaction_record_state
-          status = nil
+        unless has_transactional_callbacks?
+          sync_with_transaction_state if @transaction_state&.finalized?
+          @transaction_state = self.class.connection.transaction_state
         end
+        remember_transaction_record_state
 
+        status = yield
         if status
           if run_save && ActiveHistory.configured? && !activehistory_event.actions.empty?
             activehistory_event&.save!
@@ -136,22 +135,23 @@ module ActiveHistory::Adapter
         else
           raise ::ActiveRecord::Rollback
         end
-      end
-      status
-    ensure
-      @activehistory_timestamp = nil
-      if run_save
-        Thread.current[:activehistory_save_lock] = false
-      end
-      if destroy_current_event
-        Thread.current[:activehistory_event] = nil
-      end
+        status
+      ensure
+        @activehistory_timestamp = nil
+        if run_save
+          Thread.current[:activehistory_save_lock] = false
+        end
+        if destroy_current_event
+          Thread.current[:activehistory_event] = nil
+        end
 
-      if @transaction_state && @transaction_state.committed?
-        clear_transaction_record_state
+        if has_transactional_callbacks? &&
+            (@_new_record_before_last_commit && !new_record? || _trigger_update_callback || _trigger_destroy_callback)
+          add_to_transaction
+        end
       end
     end
-    
+
     def activehistory_tracking
       if ActiveHistory.configured? && self.class.instance_variable_defined?(:@activehistory)
         self.class.instance_variable_get(:@activehistory)
@@ -416,14 +416,14 @@ module ActiveRecord
           removed_records = target - new_target
           added_records = new_target - target
         
-          delete(removed_records)
+          delete(difference(target, new_target))
 
-          unless concat(added_records)
+          unless concat(difference(new_target, target))
             @target = original_target
             raise RecordNotSaved, "Failed to replace #{reflection.name} because one or more of the " \
                                   "new records could not be saved."
           end
-        
+
           if !owner.new_record?
             owner.activehistory_association_changed(self.reflection, added: added_records.map(&:id), removed: removed_records.map(&:id))
           end
