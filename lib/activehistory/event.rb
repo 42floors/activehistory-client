@@ -24,6 +24,7 @@ class ActiveHistory::Event
 
     @actions ||= []
     @timestamp ||= Time.now
+    @metadata ||= {}
   end
 
   def persisted?

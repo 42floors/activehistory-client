@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    activehistory (6.0.0)
+    activehistory (6.0.0.2)
       activerecord (>= 6.0.0.rc1)
       globalid (~> 0.4.2)
 
