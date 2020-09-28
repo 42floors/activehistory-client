@@ -48,7 +48,12 @@ class CreateTest < ActiveSupport::TestCase
     end
   end
   
-  
+  test '::create on an untracked model does not create an Action' do
+    @property = travel_to(@time) { UnobservedComment.create(body: 'body') }
+    
+    assert_not_posted("/events")
+  end
+
 end
 
 

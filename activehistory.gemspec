@@ -26,7 +26,7 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'minitest-reporters'
   s.add_development_dependency 'mocha'
   s.add_development_dependency 'faker'
-  s.add_development_dependency 'factory_girl'
+  s.add_development_dependency 'factory_bot'
   s.add_development_dependency 'webmock'
   s.add_development_dependency 'sdoc-templates-42floors'
   s.add_development_dependency 'simplecov'
@@ -34,6 +34,6 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'byebug'
 
   # Runtime
-  s.add_runtime_dependency 'activerecord', '>= 6.0.0.rc1'
+  s.add_runtime_dependency 'activerecord', '>= 6.0.0'
   s.add_runtime_dependency 'globalid', '~> 0.4.2'
 end

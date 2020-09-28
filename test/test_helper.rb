@@ -6,7 +6,7 @@ require 'minitest/autorun'
 require 'minitest/unit'
 require 'minitest/reporters'
 require 'webmock/minitest'
-require 'factory_girl'
+require 'factory_bot'
 require 'faker'
 require 'byebug'
 
@@ -34,7 +34,7 @@ end
 
 require File.expand_path('../models', __FILE__)
 
-FactoryGirl.find_definitions
+FactoryBot.find_definitions
 
 class ActiveSupport::TestCase
   
@@ -90,7 +90,7 @@ class ActiveSupport::TestCase
   end
   
   include ActiveRecord::TestFixtures
-  include FactoryGirl::Syntax::Methods
+  include FactoryBot::Syntax::Methods
 end
 
 # ActiveRecord::Base.logger = Logger.new(STDOUT)

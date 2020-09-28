@@ -15,10 +15,14 @@ module ActiveHistory::Adapter
         subclass.instance_variable_set('@activehistory', @activehistory.clone) if defined?(@activehistory)
       end
       
-      def track(exclude: [], habtm_model: nil)
-        options = { exclude: Array(exclude) }
-        options[:habtm_model] = habtm_model if habtm_model
-        @activehistory = options
+      def track(track_model = true, exclude: [], habtm_model: nil)
+        if track_model == false
+          @activehistory = nil
+        else
+          options = { exclude: Array(exclude) }
+          options[:habtm_model] = habtm_model if habtm_model
+          @activehistory = options
+        end
       end
       
       def has_and_belongs_to_many(name, scope = nil, **options, &extension)

@@ -68,3 +68,9 @@ end
 class UnobservedModel < ActiveRecord::Base
   
 end
+
+class UnobservedComment < Comment
+  
+  track false
+  
+end
