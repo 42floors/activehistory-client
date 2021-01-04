@@ -127,7 +127,7 @@ module ActiveHistory::Adapter
       self.class.transaction do
         unless has_transactional_callbacks?
           sync_with_transaction_state if @transaction_state&.finalized?
-          @transaction_state = self.class.connection.transaction_state
+          @transaction_state = self.class.connection.current_transaction.state
         end
         remember_transaction_record_state
 
