@@ -86,21 +86,21 @@ module ActiveHistory::Adapter
             inverse_klass = inverse_reflection.active_record
 
             added.each do |added_id|
-              inverse_klass.activehistory_association_changed(added_id, inverse_reflection, {
+              inverse_klass.activehistory_association_changed(added_id, inverse_reflection,
                 added: [id],
                 timestamp: timestamp,
                 type: type,
                 propagate: false
-              })
+              )
             end
         
             removed.each do |removed_id|
-              inverse_klass.activehistory_association_changed(removed_id, inverse_reflection, {
+              inverse_klass.activehistory_association_changed(removed_id, inverse_reflection,
                 removed: [id],
                 timestamp: timestamp,
                 type: type,
                 propagate: false
-              })
+              )
             end
           end
         end
@@ -124,11 +124,11 @@ module ActiveHistory::Adapter
       end
 
       status = nil
-      self.class.transaction do
-        unless has_transactional_callbacks?
-          sync_with_transaction_state if @transaction_state&.finalized?
-          @transaction_state = self.class.connection.current_transaction.state
-        end
+      connection = self.class.connection
+      ensure_finalize = !connection.transaction_open?
+
+      connection.transaction do
+        add_to_transaction(ensure_finalize || has_transactional_callbacks?)
         remember_transaction_record_state
 
         status = yield
@@ -154,6 +154,8 @@ module ActiveHistory::Adapter
           add_to_transaction
         end
       end
+
+      status
     end
 
     def activehistory_tracking
@@ -273,12 +275,12 @@ module ActiveHistory::Adapter
     def activehistory_association_changed(relation_name, added: [], removed: [], timestamp: nil, type: :update)
       timestamp ||= activehistory_timestamp
       
-      self.class.activehistory_association_changed(id, relation_name, {
+      self.class.activehistory_association_changed(id, relation_name,
         added: added,
         removed: removed,
         timestamp: timestamp,
         type: type
-      })
+      )
     end
     
     def activehistory_association_udpated(reflection, id, added: [], removed: [], timestamp: nil, type: :update)
