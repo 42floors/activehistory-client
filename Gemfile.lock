@@ -50,7 +50,7 @@ GEM
     pg (1.0.0)
     public_suffix (3.0.2)
     rake (12.3.1)
-    rdoc (6.0.4)
+    rdoc (6.3.2)
     ruby-progressbar (1.9.0)
     safe_yaml (1.0.4)
     sdoc (1.0.0)
